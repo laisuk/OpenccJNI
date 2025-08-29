@@ -3,7 +3,7 @@
 > High-performance Simplified/Traditional Chinese conversion using OpenCC with FMMSEG longest-match segmentation — from
 > Java, via JNI.
 
-[![Build](https://img.shields.io/badge/build-gradle-green)](#)
+[![Build](https://img.shields.io/badge/build-gradle-green)](https://gradle.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-win%20%7C%20linux%20%7C%20macOS-informational)](#-supported-platforms)
 <!-- TODO: add real CI + release badges once ready -->
@@ -49,12 +49,12 @@ public class Demo {
         // No need to call NativeLibLoader explicitly.
 
         // Create an instance bound to a specific config:
-        OpenCC cc = OpenCC.fromConfig("s2t");
+        OpenCC cc = OpenCC("s2t");
 
         String input = "汉字转换测试";
         String output = cc.convert(input);
 
-        System.out.println(output);
+        System.out.println(output);  // 漢字轉換測試
     }
 }
 ```
