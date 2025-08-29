@@ -158,9 +158,24 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Make Gradle wrapper executable
+        run: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+          fi
+          if [ -f openccjni/gradlew ]; then
+            chmod +x openccjni/gradlew
+          fi
+
       - name: Build JARs
         run: |
-          ./gradlew -p openccjni clean test jar sourcesJar javadocJar --no-daemon --stacktrace
+          if [ -x ./gradlew ]; then
+            ./gradlew -p openccjni clean test jar sourcesJar javadocJar --no-daemon --stacktrace
+          elif [ -x openccjni/gradlew ]; then
+            (cd openccjni && ./gradlew clean test jar sourcesJar javadocJar --no-daemon --stacktrace)
+          else
+            echo "No gradle wrapper found"; exit 1
+          fi
           ls -l openccjni/build/libs
 
       - name: Upload JAR artifacts
