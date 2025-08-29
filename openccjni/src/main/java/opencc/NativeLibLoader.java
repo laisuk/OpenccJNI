@@ -17,7 +17,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * Resource layout examples in your JAR:
  * opencc/natives/windows-x86_64/OpenccWrapper.dll
  * opencc/natives/windows-x86_64/opencc_fmmseg_capi.dll
- * opencc/natives/windows-x86_64/libwinpthread-1.dll
  * opencc/natives/linux-x86_64/libOpenccWrapper.so
  * opencc/natives/macos-aarch64/libOpenccWrapper.dylib
  * <p>

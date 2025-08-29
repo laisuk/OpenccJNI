@@ -12,7 +12,6 @@ public final class OpenCC {
         } catch (UnsatisfiedLinkError e) {
             // Fallback: extract from JAR resources and load all deps
             NativeLibLoader.loadChain(
-                    "libwinpthread-1",
                     "opencc_fmmseg_capi",
                     "OpenccWrapper"
             );
