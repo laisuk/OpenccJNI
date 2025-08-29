@@ -244,8 +244,8 @@ jobs:
           
           Place both files in the same directory at runtime.
           If embedding in JAR, use: /openccjni/natives/${P}/
-            EOF
-            done
+          EOF
+          done
 
       - name: Create ZIP bundles
         run: |
