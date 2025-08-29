@@ -193,7 +193,7 @@ This project is licensed under the **MIT License**. See [LICENSE](LICENSE).
 
 - OpenCC and related dictionary projects.
 - FMMSEG longest-match segmentation.
-- `openccjni-fmmseg-capi`, the native library that powers the JNI bridge.
+- `opencc_fmmseg_capi`, the Rust C API native library that powers the JNI bridge.
 
 ---
 
