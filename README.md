@@ -49,7 +49,7 @@ public class Demo {
         // No need to call NativeLibLoader explicitly.
 
         // Create an instance bound to a specific config:
-        OpenCC cc = OpenCC("s2t");
+        OpenCC cc = OpenCC.fromConfig("s2t");
 
         String input = "汉字转换测试";
         String output = cc.convert(input);
