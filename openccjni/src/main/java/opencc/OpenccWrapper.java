@@ -6,9 +6,11 @@ import java.util.List;
 import java.util.Objects;
 
 public class OpenccWrapper implements AutoCloseable {
-    static {
-        System.loadLibrary("opencc_fmmseg_capi");
-    }
+//    static {
+//        System.loadLibrary("opencc_fmmseg_capi");
+////         Use the same loader utility as in OpenCC.java
+//        NativeLibLoader.loadOrExtract("opencc_fmmseg_capi");
+//    }
 
     // Native methods
     private native long opencc_new();

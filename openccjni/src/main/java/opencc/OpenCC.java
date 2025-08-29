@@ -6,7 +6,17 @@ import java.util.Set;
 
 public final class OpenCC {
     static {
-        System.loadLibrary("OpenccWrapper");
+        try {
+            // Try normal search path (PATH, java.library.path, current dir, etc.)
+            System.loadLibrary("OpenccWrapper");
+        } catch (UnsatisfiedLinkError e) {
+            // Fallback: extract from JAR resources and load all deps
+            NativeLibLoader.loadChain(
+                    "libwinpthread-1",
+                    "opencc_fmmseg_capi",
+                    "OpenccWrapper"
+            );
+        }
     }
 
     // Thread-local native wrapper for OpenCC (safe for parallel use)
