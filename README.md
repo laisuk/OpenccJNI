@@ -1,4 +1,4 @@
-# OpenccJNI — Java JNI wrapper for OpenCC + FMMSEG
+# OpenccJNI — Java JNI wrapper for opencc-fmmseg
 
 > High-performance Simplified/Traditional Chinese conversion using OpenCC with FMMSEG longest-match segmentation — from
 > Java, via JNI.
