@@ -18,3 +18,12 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+// 👇 Add this to set the Automatic-Module-Name in MANIFEST.MF
+tasks.jar {
+    manifest {
+        attributes(
+                "Automatic-Module-Name" to "io.github.laisuk.openccjni"
+        )
+    }
+}
