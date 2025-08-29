@@ -10,14 +10,16 @@ permissions:
   contents: read
 
 env:
-  # JNI sources live alongside Java in the opencc package dir
-  CPP_SRC: openccjni/src/main/java/opencc/OpenccWrapper.cpp
-  JAVA_SRC_CLASS: openccjni/src/main/java/opencc/OpenccWrapper.java
+  # JNI sources live alongside Java in the openccjni package dir
+  CPP_SRC: openccjni/src/main/java/openccjni/OpenccWrapper.cpp
+  JAVA_SRC_CLASS: openccjni/src/main/java/openccjni/OpenccWrapper.java
 
-  # Headers and prebuilt CAPI libs are also in this dir (per your tree)
-  CAPI_INCLUDE: openccjni/src/main/java/opencc
-  LINUX_LIB_DIR: openccjni/src/main/java/opencc
-  MACOS_ARM64_LIB_DIR: openccjni/src/main/java/opencc
+  # C headers (generated + capi header) live with java sources
+  CAPI_INCLUDE: openccjni/src/main/java/openccjni
+
+  # Link against the CAPI that is shipped under resources
+  LINUX_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-x86_64
+  MACOS_ARM64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-arm64
 
   # Library name for -l<name> (maps to libopencc_fmmseg_capi.{so,dylib})
   CAPI_LIB_NAME: opencc_fmmseg_capi
@@ -40,12 +42,12 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential zip   # include zip explicitly
+          sudo apt-get install -y build-essential zip
 
       - name: Show tree for sanity
         run: |
-          ls -la .
-          ls -la openccjni/src/main/java/opencc || true
+          ls -la openccjni/src/main/java/openccjni || true
+          ls -la openccjni/src/main/resources/openccjni/natives/linux-x86_64 || true
 
       - name: Generate JNI header (optional)
         run: |
@@ -89,8 +91,8 @@ jobs:
 
       - name: Show tree for sanity
         run: |
-          ls -la .
-          ls -la openccjni/src/main/java/opencc || true
+          ls -la openccjni/src/main/java/openccjni || true
+          ls -la openccjni/src/main/resources/openccjni/natives/macos-arm64 || true
 
       - name: Generate JNI header (optional)
         run: |
@@ -129,7 +131,7 @@ jobs:
       - name: Verify prebuilt DLL exists
         shell: bash
         run: |
-          DLL_PATH="openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll"
+          DLL_PATH="openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll"
           if [[ ! -f "$DLL_PATH" ]]; then
             echo "Prebuilt DLL not found at $DLL_PATH"
             exit 1
@@ -141,14 +143,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenccWrapper-windows-x86_64
-          path: openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll
+          path: openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll
           if-no-files-found: error
 
   build_jar:
+    name: Build openccjni JAR (+sources/javadoc)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { submodules: recursive }
+        with:
+          submodules: recursive
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -184,7 +188,6 @@ jobs:
         with:
           submodules: recursive
 
-      # NEW: download everything from this run (no name/pattern -> all artifacts)
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -204,14 +207,13 @@ jobs:
           WIN_DLL="$(find artifacts -type f -name 'OpenccWrapper.dll' -print -quit || true)"
 
           # Fallback to repo resources if any are missing
-          [ -z "${LINUX_SO}" ]   && [ -f openccjni/src/main/resources/opencc/natives/linux-x86_64/libOpenccWrapper.so ] \
-                                 && LINUX_SO=openccjni/src/main/resources/opencc/natives/linux-x86_64/libOpenccWrapper.so
-          [ -z "${MACOS_DYLIB}" ] && [ -f openccjni/src/main/resources/opencc/natives/macos-arm64/libOpenccWrapper.dylib ] \
-                                  && MACOS_DYLIB=openccjni/src/main/resources/opencc/natives/macos-arm64/libOpenccWrapper.dylib
-          [ -z "${WIN_DLL}" ]    && [ -f openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll ] \
-                                 && WIN_DLL=openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll
+          [ -z "${LINUX_SO}" ]   && [ -f openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so ] \
+                                 && LINUX_SO=openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so
+          [ -z "${MACOS_DYLIB}" ] && [ -f openccjni/src/main/resources/openccjni/natives/macos-arm64/libOpenccWrapper.dylib ] \
+                                  && MACOS_DYLIB=openccjni/src/main/resources/openccjni/natives/macos-arm64/libOpenccWrapper.dylib
+          [ -z "${WIN_DLL}" ]    && [ -f openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll ] \
+                                 && WIN_DLL=openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll
 
-          # Assert we found all three
           echo "Using:"
           echo " - linux so : ${LINUX_SO:-<missing>}"
           echo " - macOS dylib: ${MACOS_DYLIB:-<missing>}"
@@ -222,28 +224,28 @@ jobs:
 
           # Stage bundles
           mkdir -p bundle/linux-x86_64 bundle/macos-arm64 bundle/windows-x86_64
-          cp "${LINUX_SO}"  bundle/linux-x86_64/
+          cp "${LINUX_SO}"    bundle/linux-x86_64/
           cp "${MACOS_DYLIB}" bundle/macos-arm64/
-          cp "${WIN_DLL}"   bundle/windows-x86_64/
+          cp "${WIN_DLL}"     bundle/windows-x86_64/
 
-          # Include CAPI from resources (these paths match your repo)
-          cp openccjni/src/main/resources/opencc/natives/linux-x86_64/libopencc_fmmseg_capi.so     bundle/linux-x86_64/
-          cp openccjni/src/main/resources/opencc/natives/macos-arm64/libopencc_fmmseg_capi.dylib   bundle/macos-arm64/
-          cp openccjni/src/main/resources/opencc/natives/windows-x86_64/opencc_fmmseg_capi.dll     bundle/windows-x86_64/
+          # Include CAPI from resources
+          cp openccjni/src/main/resources/openccjni/natives/linux-x86_64/libopencc_fmmseg_capi.so     bundle/linux-x86_64/
+          cp openccjni/src/main/resources/openccjni/natives/macos-arm64/libopencc_fmmseg_capi.dylib   bundle/macos-arm64/
+          cp openccjni/src/main/resources/openccjni/natives/windows-x86_64/opencc_fmmseg_capi.dll     bundle/windows-x86_64/
 
           # Tiny README per bundle
           for P in linux-x86_64 macos-arm64 windows-x86_64; do
             cat > "bundle/$P/README.txt" <<EOF
           OpenccJNI natives for ${P} (${TAG})
-        
+
           Contents:
             - Wrapper: OpenccWrapper.{so|dylib|dll}
-            - CAPI: opencc_fmmseg_capi.{so|dylib|dll}
-        
+            - CAPI:    opencc_fmmseg_capi.{so|dylib|dll}
+          
           Place both files in the same directory at runtime.
-          If embedding in JAR, use: /opencc/natives/${P}/
-          EOF
-          done
+          If embedding in JAR, use: /openccjni/natives/${P}/
+            EOF
+            done
 
       - name: Create ZIP bundles
         run: |
@@ -255,7 +257,6 @@ jobs:
           mv bundle/*.zip dist/
           ls -l dist
 
-      # Download JARs and attach to release (unchanged)
       - name: Collect JARs
         run: |
           mkdir -p dist/jars

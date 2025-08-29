@@ -1,4 +1,4 @@
-package opencc;
+package openccjni;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -83,7 +83,7 @@ public class OpenCCTests {
 
         // Time the conversion
         long start = System.nanoTime();
-        var config = opencc1.getConfig();
+        String config = opencc1.getConfig();
         if (!Objects.equals(config, "s2t")) {
             opencc1.setConfig("s2t");
         }

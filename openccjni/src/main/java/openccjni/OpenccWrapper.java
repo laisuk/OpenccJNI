@@ -1,9 +1,8 @@
-package opencc;
+package openccjni;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Low-level JNI wrapper around the native OpenCC + FMMSEG C API.
@@ -169,8 +168,8 @@ public class OpenccWrapper implements AutoCloseable {
      * @return error message, or empty string if none
      */
     public String getLastError() {
-        String last_error = opencc_last_error();
-        return Objects.requireNonNullElse(last_error, "");
+        final String lastError = opencc_last_error(); // native
+        return lastError != null ? lastError : "";
     }
 
     /**

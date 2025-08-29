@@ -1,7 +1,5 @@
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
+import java.net.URL
+import java.net.HttpURLConnection
 import java.util.Base64
 
 plugins {
@@ -27,7 +25,7 @@ tasks.named<Jar>("sourcesJar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     // allow only actual Java sources & descriptors
     include("**/*.java", "**/module-info.java", "**/package-info.java")
-    // hard-exclude everything JNI/native-ish living under src/main/java/opencc
+    // hard-exclude everything JNI/native-ish living under src/main/java/openccjni
     exclude(
         "**/natives/**",
         "**/*.so", "**/*.dll", "**/*.dylib",
@@ -118,7 +116,8 @@ publishing {
 signing {
     useGpgCmd()
     // Only sign if we’re not publishing locally
-    val isLocal = gradle.startParameter.taskNames.any { it.contains("publishToMavenLocal") || it.contains("LocalOutput") }
+    val isLocal =
+        gradle.startParameter.taskNames.any { it.contains("publishToMavenLocal") || it.contains("LocalOutput") }
     if (!isLocal) {
         sign(publishing.publications["mavenJava"])
     }
@@ -136,24 +135,48 @@ tasks.register("uploadToPortal") {
     group = "publishing"
     description = "Notify Central Portal to ingest the last staging upload"
     doLast {
-        require(!portalUser.isNullOrBlank() && !portalPass.isNullOrBlank()) {
-            "Missing OSSRH portal credentials (OSSRH_USERNAME/OSSRH_PASSWORD or ossrhUsername/ossrhPassword)."
+        val user = portalUser ?: ""
+        val pass = portalPass ?: ""
+        require(user.isNotEmpty() && pass.isNotEmpty()) {
+            "Missing Central Portal credentials (CENTRAL_PORTAL_TOKEN_USER/_PASS or gradle.properties)."
         }
-        val url = "https://ossrh-staging-api.central.sonatype.com/manual/upload/defaultRepository/$portalNamespace"
-        val client = HttpClient.newHttpClient()
-        val req = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .header("Authorization", "Bearer $portalAuth")
-            .POST(HttpRequest.BodyPublishers.noBody())
-            .build()
-        val resp = client.send(req, HttpResponse.BodyHandlers.ofString())
-        if (resp.statusCode() !in 200..299) {
-            throw RuntimeException("Portal upload failed: ${resp.statusCode()} ${resp.body()}")
+
+        val auth = Base64.getEncoder().encodeToString("$user:$pass".toByteArray(Charsets.UTF_8))
+        val urlStr = "https://ossrh-staging-api.central.sonatype.com/" +
+                "manual/upload/defaultRepository/$portalNamespace?publishing_type=user_managed"
+
+        val url = URL(urlStr)
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            setRequestProperty("Authorization", "Bearer $auth")
+            doOutput = true           // POST (nobody)
+            useCaches = false
+            connectTimeout = 30_000
+            readTimeout = 60_000
+        }
+
+        // Nobody to send; just open/close the stream to issue the request
+        conn.outputStream.use { /* empty POST body */ }
+
+        val code = conn.responseCode
+        val body = try {
+            (if (code in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader()?.readText().orEmpty()
+        } catch (_: Exception) {
+            ""
+        }
+
+        conn.disconnect()
+
+        if (code !in 200..299) {
+            throw GradleException("Portal upload failed: $code ${body.take(500)}")
         } else {
-            println("Portal upload ok: ${resp.statusCode()}")
+            println("Portal upload ok: $code")
         }
     }
 }
 
-// Typical CI sequence: publish → uploadToPortal
-tasks.named("publish") { finalizedBy("uploadToPortal") }
+// Only wire the ingestion step for non-SNAPSHOT publishes
+if (!version.toString().endsWith("SNAPSHOT")) {
+    tasks.named("publish") { finalizedBy("uploadToPortal") }
+}

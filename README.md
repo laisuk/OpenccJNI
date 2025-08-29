@@ -1,4 +1,4 @@
-# OpenccJNI — Java JNI wrapper for opencc-fmmseg
+# OpenccJNI — Java JNI wrapper for openccjni-fmmseg
 
 > High-performance Simplified/Traditional Chinese conversion using OpenCC with FMMSEG longest-match segmentation — from
 > Java, via JNI.
@@ -18,7 +18,7 @@
   typically **do not need** to call `NativeLibLoader` yourself.
 - **Wide config support**: Common OpenCC configurations out of the box (see below).
 
-> This repository targets **opencc-fmmseg-capi** only. Jieba JNI will be provided in a separate repo later.
+> This repository targets **openccjni-fmmseg-capi** only. Jieba JNI will be provided in a separate repo later.
 
 ---
 
@@ -26,7 +26,7 @@
 
 - **A — JAR with embedded natives (recommended)**  
   Embed natives under:  
-  `opencc/natives/{os}-{arch}/{System.mapLibraryName("OpenccWrapper")}`  
+  `openccjni/natives/{os}-{arch}/{System.mapLibraryName("OpenccWrapper")}`  
   The `OpenCC` class will attempt `System.loadLibrary` first, then auto-extract from resources to a shared temp dir and
   `System.load()` it.
 
@@ -41,7 +41,7 @@
 ## 🚀 Quick Start (auto native load)
 
 ```java
-import opencc.OpenCC;  // High-level, autoloads native on first use
+import openccjni.OpenCC;  // High-level, autoloads native on first use
 
 public class Demo {
     public static void main(String[] args) {
@@ -79,13 +79,13 @@ Default resolution order used by `OpenCC`:
 1. `System.loadLibrary("OpenccWrapper")` (PATH / `java.library.path` / working dir, etc.)
 2. If not found, extract from JAR resources under:
    ```
-   /opencc/natives/{os}-{arch}/{System.mapLibraryName("OpenccWrapper")}
+   /openccjni/natives/{os}-{arch}/{System.mapLibraryName("OpenccWrapper")}
    ```
    Examples:
    ```
-   /opencc/natives/windows-x86_64/OpenccWrapper.dll
-   /opencc/natives/linux-x86_64/libOpenccWrapper.so
-   /opencc/natives/macos-aarch64/libOpenccWrapper.dylib
+   /openccjni/natives/windows-x86_64/OpenccWrapper.dll
+   /openccjni/natives/linux-x86_64/libOpenccWrapper.so
+   /openccjni/natives/macos-aarch64/libOpenccWrapper.dylib
    ```
 
 `NativeLibLoader` is still available for advanced/manual loading scenarios, but **not required** for typical usage.
@@ -101,13 +101,13 @@ Default resolution order used by `OpenCC`:
     - **Windows**: MinGW-w64 (posix-seh, e.g., x86_64-14.x). 32-bit builds via `i686` toolchain.
     - **Linux**: GCC/Clang with standard libc.
     - **macOS**: Xcode/Clang.
-- **Native dependency**: `opencc-fmmseg-capi` (build or provide binaries on your link path).
+- **Native dependency**: `openccjni-fmmseg-capi` (build or provide binaries on your link path).
 
 ### Generate JNI header
 
 ```bash
 # From the Java source root; outputs a JNI header for OpenccWrapper bindings
-javac -h . src/main/java/opencc/OpenccWrapper.java
+javac -h . src/main/java/openccjni/OpenccWrapper.java
 ```
 
 This produces a header like `opencc_OpenccWrapper.h` that your C/C++ file includes.
@@ -137,7 +137,7 @@ g++ -shared -fPIC -O2 -std=c++17 -o libOpenccWrapper.so OpenccWrapper.cpp   -I .
 clang++ -shared -fPIC -O2 -std=c++17 -o libOpenccWrapper.dylib OpenccWrapper.cpp   -I . -I "${JAVA_HOME}/include" -I "${JAVA_HOME}/include/darwin"   -L . -lopencc_fmmseg_capi
 ```
 
-Place the resulting native next to the JAR or embed it under `/opencc/natives/{os}-{arch}/...` in the JAR.
+Place the resulting native next to the JAR or embed it under `/openccjni/natives/{os}-{arch}/...` in the JAR.
 
 ---
 
@@ -174,11 +174,11 @@ Place the resulting native next to the JAR or embed it under `/opencc/natives/{o
 
 ```
 openccjni/
-├─ src/main/java/opencc/
+├─ src/main/java/openccjni/
 │  ├─ OpenCC.java             # High-level Java API (auto native load, configs)
 │  ├─ OpenccWrapper.java      # Low-level JNI bridge class (native methods)
 │  └─ NativeLibLoader.java    # Optional: manual/system-first loader helper
-├─ src/main/resources/opencc/natives/   # Optional: embedded natives
+├─ src/main/resources/openccjni/natives/   # Optional: embedded natives
 │  └─ {os}-{arch}/{mapped-lib-name}
 └─ ...
 ```
@@ -193,7 +193,7 @@ This project is licensed under the **MIT License**. See [LICENSE](LICENSE).
 
 - OpenCC and related dictionary projects.
 - FMMSEG longest-match segmentation.
-- `opencc-fmmseg-capi`, the native library that powers the JNI bridge.
+- `openccjni-fmmseg-capi`, the native library that powers the JNI bridge.
 
 ---
 

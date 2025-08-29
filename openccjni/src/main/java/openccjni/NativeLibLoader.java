@@ -1,4 +1,4 @@
-package opencc;
+package openccjni;
 
 import java.io.*;
 import java.net.URL;
@@ -13,15 +13,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * Resolution order per library base name:
  * <ol>
  *   <li>{@link System#loadLibrary(String)} (PATH / java.library.path / current dir, etc.)</li>
- *   <li>Extract from JAR: {@code /opencc/natives/{os}-{arch}/{System.mapLibraryName(baseName)}} into a shared temp dir, then {@link System#load(String)}</li>
+ *   <li>Extract from JAR: {@code /openccjni/natives/{os}-{arch}/{System.mapLibraryName(baseName)}} into a shared temp dir, then {@link System#load(String)}</li>
  * </ol>
  * <p>
  * Resource layout examples in your JAR:
  * <ul>
- *   <li>{@code opencc/natives/windows-x86_64/OpenccWrapper.dll}</li>
- *   <li>{@code opencc/natives/windows-x86_64/opencc_fmmseg_capi.dll}</li>
- *   <li>{@code opencc/natives/linux-x86_64/libOpenccWrapper.so}</li>
- *   <li>{@code opencc/natives/macos-aarch64/libOpenccWrapper.dylib}</li>
+ *   <li>{@code openccjni/natives/windows-x86_64/OpenccWrapper.dll}</li>
+ *   <li>{@code openccjni/natives/windows-x86_64/opencc_fmmseg_capi.dll}</li>
+ *   <li>{@code openccjni/natives/linux-x86_64/libOpenccWrapper.so}</li>
+ *   <li>{@code openccjni/natives/macos-arm64/libOpenccWrapper.dylib}</li>
  * </ul>
  * <p>
  * Extras:
@@ -147,7 +147,7 @@ public final class NativeLibLoader {
         synchronized (NativeLibLoader.class) {
             if (SHARED_TEMP_DIR == null) {
                 try {
-                    SHARED_TEMP_DIR = Files.createTempDirectory("opencc-natives-");
+                    SHARED_TEMP_DIR = Files.createTempDirectory("openccjni-natives-");
                     SHARED_TEMP_DIR.toFile().deleteOnExit();
                 } catch (IOException e) {
                     throw new UnsatisfiedLinkError("Failed to create native temp dir: " + e);
@@ -170,24 +170,46 @@ public final class NativeLibLoader {
      * Returns null if optional and resource is missing.
      */
     private static Path extractToDir(String baseName, Path dir, boolean optional) throws IOException {
-        final String mapped = System.mapLibraryName(baseName); // keeps 'lib' and extension rules per-OS
+        final String mapped = System.mapLibraryName(baseName); // e.g. libOpenccWrapper.so / .dylib / .dll
         final String os = detectOs();
         final String arch = detectArch();
 
-        final String resource = String.format("/opencc/natives/%s-%s/%s", os, arch, mapped);
-        URL url = NativeLibLoader.class.getResource(resource);
-
-        // Raw-filename fallback (rarely needed; keeps behavior from your original version)
-        if (url == null && "windows".equals(os)) {
-            final String alt = String.format("/opencc/natives/%s-%s/%s.dll", os, arch, baseName);
-            url = NativeLibLoader.class.getResource(alt);
-            if (url == null && optional) return null;
-            if (url == null) {
-                throw new FileNotFoundException("Missing resource: " + resource + " (and " + alt + ")");
+        // Build candidate resource paths (prefer macos-arm64, fallback macos-aarch64)
+        final List<String> candidates = new ArrayList<>(2);
+        if ("macos".equals(os)) {
+            if ("arm64".equals(arch) || "aarch64".equals(arch)) {
+                candidates.add(String.format("/openccjni/natives/macos-arm64/%s", mapped));
+                candidates.add(String.format("/openccjni/natives/macos-aarch64/%s", mapped));
+            } else {
+                candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
             }
-        } else if (url == null) {
+        } else {
+            candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
+        }
+
+        URL url = null;
+        for (String res : candidates) {
+            url = NativeLibLoader.class.getResource(res);
+            if (url != null) break;
+        }
+
+        // Windows: also try raw "<base>.dll" filename variant (keeps your original behavior)
+        if (url == null && "windows".equals(os)) {
+            final List<String> winCandidates = new ArrayList<>();
+            if ("macos".equals(os)) {
+                // (never hits)
+            } else {
+                winCandidates.add(String.format("/openccjni/natives/%s-%s/%s.dll", os, arch, baseName));
+            }
+            for (String res : winCandidates) {
+                url = NativeLibLoader.class.getResource(res);
+                if (url != null) break;
+            }
+        }
+
+        if (url == null) {
             if (optional) return null;
-            throw new FileNotFoundException("Missing resource: " + resource);
+            throw new FileNotFoundException("Missing native resource for " + baseName + " (looked in: " + candidates + ")");
         }
 
         Files.createDirectories(dir);
@@ -199,11 +221,11 @@ public final class NativeLibLoader {
             while ((r = in.read(buf)) != -1) o.write(buf, 0, r);
         }
 
-        // Be generous with perms on Unix
+        // Generous perms on Unix
         try {
-            out.toFile().setReadable(true, true);
-            out.toFile().setWritable(true, true);
-            out.toFile().setExecutable(true, true);
+            out.toFile().setReadable(true, false);
+            out.toFile().setWritable(true, false);
+            out.toFile().setExecutable(true, false);
         } catch (SecurityException ignored) {
         }
 
