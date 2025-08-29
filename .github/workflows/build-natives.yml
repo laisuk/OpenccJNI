@@ -10,14 +10,14 @@ permissions:
   contents: read
 
 env:
-  # Adjust these paths if your layout differs.
-  CPP_SRC: src/main/cpp/OpenccWrapper.cpp
-  JAVA_SRC_CLASS: src/main/java/opencc/OpenccWrapper.java
+  # ---- JNI sources ----
+  CPP_SRC: openccjni/src/main/java/opencc/OpenccWrapper.cpp
+  JAVA_SRC_CLASS: openccjni/src/main/java/opencc/OpenccWrapper.java
 
-  # Where your opencc-fmmseg-capi headers and libs live (adjust to your repo)
-  CAPI_INCLUDE: native/include
-  LINUX_LIB_DIR: native/linux-x86_64
-  MACOS_ARM64_LIB_DIR: native/macos-arm64
+  # ---- Native dep (adjust if located elsewhere) ----
+  CAPI_INCLUDE: openccjni/native/include
+  LINUX_LIB_DIR: openccjni/native/linux-x86_64
+  MACOS_ARM64_LIB_DIR: openccjni/native/macos-arm64
 
   CAPI_LIB_NAME: opencc_fmmseg_capi
 
@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -39,14 +41,14 @@ jobs:
 
       - name: Generate JNI header (optional)
         run: |
-          javac -h . ${{ env.JAVA_SRC_CLASS }}
+          javac -h . "${{ env.JAVA_SRC_CLASS }}"
 
       - name: Build libOpenccWrapper.so
         run: |
           mkdir -p build/linux-x86_64
           g++ -shared -fPIC -O2 -std=c++17 \
             -o build/linux-x86_64/libOpenccWrapper.so \
-            ${{ env.CPP_SRC }} \
+            "${{ env.CPP_SRC }}" \
             -I . \
             -I "${JAVA_HOME}/include" \
             -I "${JAVA_HOME}/include/linux" \
@@ -64,9 +66,11 @@ jobs:
 
   macos_arm64:
     name: macOS arm64 .dylib
-    runs-on: macos-14  # Apple Silicon runner
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -76,14 +80,14 @@ jobs:
 
       - name: Generate JNI header (optional)
         run: |
-          javac -h . ${{ env.JAVA_SRC_CLASS }}
+          javac -h . "${{ env.JAVA_SRC_CLASS }}"
 
       - name: Build libOpenccWrapper.dylib
         run: |
           mkdir -p build/macos-arm64
           clang++ -shared -fPIC -O2 -std=c++17 \
             -o build/macos-arm64/libOpenccWrapper.dylib \
-            ${{ env.CPP_SRC }} \
+            "${{ env.CPP_SRC }}" \
             -I . \
             -I "${JAVA_HOME}/include" \
             -I "${JAVA_HOME}/include/darwin" \
@@ -104,13 +108,13 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-      # Adjust this path to your actual prebuilt DLL location in the repo:
-      # e.g. src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll
       - name: Verify prebuilt DLL exists
         shell: bash
         run: |
-          DLL_PATH="src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll"
+          DLL_PATH="openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll"
           if [[ ! -f "$DLL_PATH" ]]; then
             echo "Prebuilt DLL not found at $DLL_PATH"
             exit 1
@@ -121,5 +125,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenccWrapper-windows-x86_64
-          path: src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll
+          path: openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll
           if-no-files-found: error
