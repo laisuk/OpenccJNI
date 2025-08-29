@@ -10,16 +10,20 @@ permissions:
   contents: read
 
 env:
-  # ---- JNI sources ----
+  # JNI sources (*.cpp, *.h, *.java are together here)
   CPP_SRC: openccjni/src/main/java/opencc/OpenccWrapper.cpp
   JAVA_SRC_CLASS: openccjni/src/main/java/opencc/OpenccWrapper.java
 
-  # ---- Native dep (adjust if located elsewhere) ----
-  CAPI_INCLUDE: openccjni/native/include
-  LINUX_LIB_DIR: openccjni/native/linux-x86_64
-  MACOS_ARM64_LIB_DIR: openccjni/native/macos-arm64
+  # Include directory for headers (you said .h is in the same opencc/ dir)
+  CAPI_INCLUDE: openccjni/src/main/java/opencc
 
-  CAPI_LIB_NAME: opencc_fmmseg_capi
+  # Prebuilt CAPI library locations inside resources
+  LINUX_LIB_DIR: openccjni/src/main/resources/opencc/natives/linux-x86_64
+  MACOS_ARM64_LIB_DIR: openccjni/src/main/resources/opencc/natives/macos-aarch64
+
+  # Exact filenames we’ll link against (avoid -l<name> ambiguity)
+  LINUX_CAPI_FILE: libopencc_fmmseg_capi.so
+  MACOS_CAPI_FILE: libopencc_fmmseg_capi.dylib
 
 jobs:
   linux:
@@ -39,12 +43,19 @@ jobs:
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y build-essential
 
+      - name: Show tree for sanity
+        run: |
+          ls -la .
+          ls -la openccjni/src/main/java/opencc || true
+          ls -la "${{ env.LINUX_LIB_DIR }}" || true
+
       - name: Generate JNI header (optional)
         run: |
           javac -h . "${{ env.JAVA_SRC_CLASS }}"
 
       - name: Build libOpenccWrapper.so
         run: |
+          test -f "${{ env.LINUX_LIB_DIR }}/${{ env.LINUX_CAPI_FILE }}" || (echo "Missing CAPI at ${{ env.LINUX_LIB_DIR }}/${{ env.LINUX_CAPI_FILE }}" && exit 1)
           mkdir -p build/linux-x86_64
           g++ -shared -fPIC -O2 -std=c++17 \
             -o build/linux-x86_64/libOpenccWrapper.so \
@@ -53,8 +64,9 @@ jobs:
             -I "${JAVA_HOME}/include" \
             -I "${JAVA_HOME}/include/linux" \
             -I "${{ env.CAPI_INCLUDE }}" \
-            -L "${{ env.LINUX_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
-            -Wl,-rpath,'$ORIGIN'
+            -L "${{ env.LINUX_LIB_DIR }}" -Wl,-rpath,'$ORIGIN' \
+            -Wl,-rpath,'$ORIGIN/.' \
+            -Wl,--no-as-needed -l:"${{ env.LINUX_CAPI_FILE }}"
           file build/linux-x86_64/libOpenccWrapper.so
 
       - name: Upload artifact (Linux .so)
@@ -66,7 +78,7 @@ jobs:
 
   macos_arm64:
     name: macOS arm64 .dylib
-    runs-on: macos-14
+    runs-on: macos-14  # Apple Silicon
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,12 +90,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Show tree for sanity
+        run: |
+          ls -la .
+          ls -la openccjni/src/main/java/opencc || true
+          ls -la "${{ env.MACOS_ARM64_LIB_DIR }}" || true
+
       - name: Generate JNI header (optional)
         run: |
           javac -h . "${{ env.JAVA_SRC_CLASS }}"
 
       - name: Build libOpenccWrapper.dylib
         run: |
+          test -f "${{ env.MACOS_ARM64_LIB_DIR }}/${{ env.MACOS_CAPI_FILE }}" || (echo "Missing CAPI at ${{ env.MACOS_ARM64_LIB_DIR }}/${{ env.MACOS_CAPI_FILE }}" && exit 1)
           mkdir -p build/macos-arm64
           clang++ -shared -fPIC -O2 -std=c++17 \
             -o build/macos-arm64/libOpenccWrapper.dylib \
@@ -92,8 +111,10 @@ jobs:
             -I "${JAVA_HOME}/include" \
             -I "${JAVA_HOME}/include/darwin" \
             -I "${{ env.CAPI_INCLUDE }}" \
-            -L "${{ env.MACOS_ARM64_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
-            -Wl,-rpath,@loader_path
+            -L "${{ env.MACOS_ARM64_LIB_DIR }}" \
+            -Wl,-rpath,@loader_path \
+            -Wl,-rpath,@loader_path/. \
+            -l:"${{ env.MACOS_CAPI_FILE }}"
           file build/macos-arm64/libOpenccWrapper.dylib
 
       - name: Upload artifact (macOS .dylib)
@@ -119,6 +140,7 @@ jobs:
             echo "Prebuilt DLL not found at $DLL_PATH"
             exit 1
           fi
+          ls -la "$(dirname "$DLL_PATH")"
           echo "Found $DLL_PATH"
 
       - name: Upload artifact (Windows .dll)
