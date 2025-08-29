@@ -74,7 +74,20 @@ g++ -shared `
 Copy OpenccWrapper.dll, opencc_fmmseg_capi.dll to project root
 
 == Linux ==
-g++ -shared -o libOpenccWrapper.so OpenccWrapper.cpp -I . -I "/home/bryan/.jdks/graalvm-jdk-21.0.7/include/" -I "/home/bryan/.jdks/graalvm-jdk-21.0.7/include/linux" -L. -lopencc_fmmseg_capi -Wl,-rpath='$ORIGIN'
+g++ -shared -o libOpenccWrapper.so OpenccWrapper.cpp -I . -I "/home/bryan/.jdks/graalvm-jdk-21.0.8/include/" -I "/home/bryan/.jdks/graalvm-jdk-21.0.8/include/linux" -L. -lopencc_fmmseg_capi -Wl,-rpath='$ORIGIN'
+# from repo root
+javac -h . openccjni/src/main/java/openccjni/OpenccWrapper.java  # (once, to refresh JNI header)
+
+g++ -shared -fPIC -O2 -std=c++17 \
+  -o openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so \
+  openccjni/src/main/java/openccjni/OpenccWrapper.cpp \
+  -I openccjni/src/main/java/openccjni \
+  -I "/home/bryan/.jdks/graalvm-jdk-21.0.8/include" \
+  -I "/home/bryan/.jdks/graalvm-jdk-21.0.8/include/linux" \
+  -L openccjni/src/main/resources/openccjni/natives/linux-x86_64 \
+  -lopencc_fmmseg_capi \
+  -Wl,-rpath,'$ORIGIN' -Wl,--enable-new-dtags
+
 => libOpenccWrapper.so
 Copy libOpenccWrapper.so, libopencc_fmmseg_capi.so to /usr/java/packages/lib/
 
