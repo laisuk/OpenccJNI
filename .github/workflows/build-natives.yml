@@ -174,7 +174,7 @@ jobs:
 
   publish_release:
     name: Create GitHub release (auto prerelease if dashed tag)
-    needs: [ linux, macos_arm64, windows_collect, build_jar ]   # <-- ensure JARs are built first
+    needs: [ linux, macos_arm64, windows_collect, build_jar ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -184,52 +184,62 @@ jobs:
         with:
           submodules: recursive
 
-      # Download ALL artifacts from this run (wrappers + jars)
+      # NEW: download everything from this run (no name/pattern -> all artifacts)
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      # Collect JARs from wherever they landed
-      - name: Collect JARs
+      - name: Prepare bundles (include CAPI) — robust file discovery
         run: |
-          mkdir -p dist/jars
-          echo "Artifacts tree:"
-          find artifacts -maxdepth 3 -type f -print | sed 's/^/ - /'
-          echo "Copying openccjni-*.jar..."
-          mapfile -t jars < <(find artifacts -type f -name "openccjni-*.jar")
-          if [ "${#jars[@]}" -eq 0 ]; then
-            echo "No JARs found under artifacts"; exit 1
-          fi
-          cp "${jars[@]}" dist/jars/
-          ls -l dist/jars
-          
-      - name: Prepare bundles (include CAPI)
-        run: |
+          set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
 
-          # Staging
+          echo "Artifacts tree:"
+          find artifacts -maxdepth 3 -type f -print | sed 's/^/ - /' || true
+
+          # Locate wrappers from artifacts (first match wins)
+          LINUX_SO="$(find artifacts -type f -name 'libOpenccWrapper.so' -print -quit || true)"
+          MACOS_DYLIB="$(find artifacts -type f -name 'libOpenccWrapper.dylib' -print -quit || true)"
+          WIN_DLL="$(find artifacts -type f -name 'OpenccWrapper.dll' -print -quit || true)"
+
+          # Fallback to repo resources if any are missing
+          [ -z "${LINUX_SO}" ]   && [ -f openccjni/src/main/resources/opencc/natives/linux-x86_64/libOpenccWrapper.so ] \
+                                 && LINUX_SO=openccjni/src/main/resources/opencc/natives/linux-x86_64/libOpenccWrapper.so
+          [ -z "${MACOS_DYLIB}" ] && [ -f openccjni/src/main/resources/opencc/natives/macos-arm64/libOpenccWrapper.dylib ] \
+                                  && MACOS_DYLIB=openccjni/src/main/resources/opencc/natives/macos-arm64/libOpenccWrapper.dylib
+          [ -z "${WIN_DLL}" ]    && [ -f openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll ] \
+                                 && WIN_DLL=openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll
+
+          # Assert we found all three
+          echo "Using:"
+          echo " - linux so : ${LINUX_SO:-<missing>}"
+          echo " - macOS dylib: ${MACOS_DYLIB:-<missing>}"
+          echo " - windows dll: ${WIN_DLL:-<missing>}"
+          [ -n "${LINUX_SO:-}" ] || { echo "ERROR: Linux wrapper missing"; exit 1; }
+          [ -n "${MACOS_DYLIB:-}" ] || { echo "ERROR: macOS wrapper missing"; exit 1; }
+          [ -n "${WIN_DLL:-}" ] || { echo "ERROR: Windows wrapper missing"; exit 1; }
+
+          # Stage bundles
           mkdir -p bundle/linux-x86_64 bundle/macos-arm64 bundle/windows-x86_64
+          cp "${LINUX_SO}"  bundle/linux-x86_64/
+          cp "${MACOS_DYLIB}" bundle/macos-arm64/
+          cp "${WIN_DLL}"   bundle/windows-x86_64/
 
-          # Wrappers from artifacts
-          cp release_assets/OpenccWrapper-linux-x86_64/libOpenccWrapper.so      bundle/linux-x86_64/
-          cp release_assets/OpenccWrapper-macos-arm64/libOpenccWrapper.dylib   bundle/macos-arm64/
-          cp release_assets/OpenccWrapper-windows-x86_64/OpenccWrapper.dll     bundle/windows-x86_64/
-
-          # CAPI from resources
+          # Include CAPI from resources (these paths match your repo)
           cp openccjni/src/main/resources/opencc/natives/linux-x86_64/libopencc_fmmseg_capi.so     bundle/linux-x86_64/
           cp openccjni/src/main/resources/opencc/natives/macos-arm64/libopencc_fmmseg_capi.dylib   bundle/macos-arm64/
           cp openccjni/src/main/resources/opencc/natives/windows-x86_64/opencc_fmmseg_capi.dll     bundle/windows-x86_64/
 
-          # Tiny README
+          # Tiny README per bundle
           for P in linux-x86_64 macos-arm64 windows-x86_64; do
             cat > "bundle/$P/README.txt" <<EOF
           OpenccJNI natives for ${P} (${TAG})
-
+        
           Contents:
             - Wrapper: OpenccWrapper.{so|dylib|dll}
-            - CAPI:    opencc_fmmseg_capi.{so|dylib|dll}
-          
+            - CAPI: opencc_fmmseg_capi.{so|dylib|dll}
+        
           Place both files in the same directory at runtime.
           If embedding in JAR, use: /opencc/natives/${P}/
           EOF
@@ -244,6 +254,15 @@ jobs:
           (cd bundle/windows-x86_64&& zip -9r "../OpenccJNI-natives-${TAG}-windows-x86_64.zip" .)
           mv bundle/*.zip dist/
           ls -l dist
+
+      # Download JARs and attach to release (unchanged)
+      - name: Collect JARs
+        run: |
+          mkdir -p dist/jars
+          mapfile -t jars < <(find artifacts -type f -name "openccjni-*.jar")
+          if [ "${#jars[@]}" -eq 0 ]; then echo "No JARs found under artifacts"; exit 1; fi
+          cp "${jars[@]}" dist/jars/
+          ls -l dist/jars
 
       - name: Create release (prerelease only if tag has '-')
         uses: softprops/action-gh-release@v2
