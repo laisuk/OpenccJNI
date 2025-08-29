@@ -145,23 +145,18 @@ jobs:
           if-no-files-found: error
 
   build_jar:
-    name: Build openccjni JAR (+sources/javadoc)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
+        with: { submodules: recursive }
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Make Gradle wrapper executable
         run: |
           if [ -f ./gradlew ]; then chmod +x ./gradlew; fi
           if [ -f openccjni/gradlew ]; then chmod +x openccjni/gradlew; fi
-
       - name: Build JARs
         run: |
           if [ -x ./gradlew ]; then
@@ -170,20 +165,17 @@ jobs:
             (cd openccjni && ./gradlew clean test jar sourcesJar javadocJar --no-daemon --stacktrace)
           fi
           ls -l openccjni/build/libs
-
       - name: Upload JAR artifacts
         uses: actions/upload-artifact@v4
         with:
-          # unique name prevents any collisions
-          name: openccjni-jars-${{ github.run_id }}
+          name: openccjni-jars
           path: openccjni/build/libs/openccjni-*.jar
           if-no-files-found: error
 
   publish_release:
     name: Create GitHub release (auto prerelease if dashed tag)
-    needs: [ linux, macos_arm64, windows_collect ]
+    needs: [ linux, macos_arm64, windows_collect, build_jar ]   # <-- ensure JARs are built first
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
 
@@ -192,29 +184,26 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download wrapper artifacts
+      # Download ALL artifacts from this run (wrappers + jars)
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: release_assets
+          path: artifacts
 
-      # NEW: download any jar artifacts that match the pattern from this run
-      - name: Download JARs (pattern)
-        uses: actions/download-artifact@v4
-        with:
-          pattern: openccjni-jars-*
-          merge-multiple: true
-          path: dist/jars
-
-      - name: Verify JARs exist
+      # Collect JARs from wherever they landed
+      - name: Collect JARs
         run: |
-          echo "JARs in dist/jars:"
-          ls -l dist/jars || true
-          shopt -s nullglob
-          count=(dist/jars/*.jar)
-          if [ ${#count[@]} -eq 0 ]; then
-            echo "No JARs found in dist/jars"; exit 1
+          mkdir -p dist/jars
+          echo "Artifacts tree:"
+          find artifacts -maxdepth 3 -type f -print | sed 's/^/ - /'
+          echo "Copying openccjni-*.jar..."
+          mapfile -t jars < <(find artifacts -type f -name "openccjni-*.jar")
+          if [ "${#jars[@]}" -eq 0 ]; then
+            echo "No JARs found under artifacts"; exit 1
           fi
-
+          cp "${jars[@]}" dist/jars/
+          ls -l dist/jars
+          
       - name: Prepare bundles (include CAPI)
         run: |
           TAG="${GITHUB_REF_NAME}"
