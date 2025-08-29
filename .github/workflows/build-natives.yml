@@ -38,7 +38,9 @@ jobs:
           java-version: '17'
 
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y build-essential
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential zip   # include zip explicitly
 
       - name: Show tree for sanity
         run: |
@@ -141,3 +143,73 @@ jobs:
           name: OpenccWrapper-windows-x86_64
           path: openccjni/src/main/resources/opencc/natives/windows-x86_64/OpenccWrapper.dll
           if-no-files-found: error
+
+  publish_release:
+    name: Create GitHub release (auto prerelease if dashed tag)
+    needs: [ linux, macos_arm64, windows_collect ]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download wrapper artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+
+      - name: Prepare bundles (include CAPI)
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+
+          # Staging
+          mkdir -p bundle/linux-x86_64 bundle/macos-arm64 bundle/windows-x86_64
+
+          # Wrappers from artifacts
+          cp release_assets/OpenccWrapper-linux-x86_64/libOpenccWrapper.so      bundle/linux-x86_64/
+          cp release_assets/OpenccWrapper-macos-arm64/libOpenccWrapper.dylib   bundle/macos-arm64/
+          cp release_assets/OpenccWrapper-windows-x86_64/OpenccWrapper.dll     bundle/windows-x86_64/
+
+          # CAPI from resources
+          cp openccjni/src/main/resources/opencc/natives/linux-x86_64/libopencc_fmmseg_capi.so     bundle/linux-x86_64/
+          cp openccjni/src/main/resources/opencc/natives/macos-arm64/libopencc_fmmseg_capi.dylib   bundle/macos-arm64/
+          cp openccjni/src/main/resources/opencc/natives/windows-x86_64/opencc_fmmseg_capi.dll     bundle/windows-x86_64/
+
+          # Tiny README
+          for P in linux-x86_64 macos-arm64 windows-x86_64; do
+            cat > "bundle/$P/README.txt" <<EOF
+            OpenccJNI natives for ${P} (${TAG})
+
+          Contents:
+            - Wrapper: OpenccWrapper.{so|dylib|dll}
+            - CAPI:    opencc_fmmseg_capi.{so|dylib|dll}
+            
+            Place both files in the same directory at runtime.
+          If embedding in JAR, use: /opencc/natives/${P}/
+            EOF
+            done
+
+      - name: Create ZIP bundles
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          mkdir -p dist
+          (cd bundle/linux-x86_64  && zip -9r "../OpenccJNI-natives-${TAG}-linux-x86_64.zip" .)
+          (cd bundle/macos-arm64   && zip -9r "../OpenccJNI-natives-${TAG}-macos-arm64.zip" .)
+          (cd bundle/windows-x86_64&& zip -9r "../OpenccJNI-natives-${TAG}-windows-x86_64.zip" .)
+          mv bundle/*.zip dist/
+          ls -l dist
+
+      - name: Create release (prerelease only if tag has '-')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ contains(github.ref_name, '-') && format('{0} (preview)', github.ref_name) || github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            dist/OpenccJNI-natives-${{ github.ref_name }}-linux-x86_64.zip
+            dist/OpenccJNI-natives-${{ github.ref_name }}-macos-arm64.zip
+            dist/OpenccJNI-natives-${{ github.ref_name }}-windows-x86_64.zip
