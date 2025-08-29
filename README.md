@@ -5,7 +5,7 @@
 
 [![Build](https://img.shields.io/badge/build-gradle-green)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platforms](https://img.shields.io/badge/platforms-win%20%7C%20linux%20%7C%20macOS-informational)](#supported-platforms)
+[![Platforms](https://img.shields.io/badge/platforms-win%20%7C%20linux%20%7C%20macOS-informational)](#-supported-platforms)
 <!-- TODO: add real CI + release badges once ready -->
 
 ---
@@ -41,11 +41,11 @@
 ## 🚀 Quick Start (auto native load)
 
 ```java
-import opencc.OpenCC;  // High-level, auto-loads native on first use
+import opencc.OpenCC;  // High-level, autoloads native on first use
 
 public class Demo {
     public static void main(String[] args) {
-        // OpenCC auto-loads the native library internally.
+        // OpenCC autoloads the native library internally.
         // No need to call NativeLibLoader explicitly.
 
         // Create an instance bound to a specific config:
