@@ -22,6 +22,20 @@ java {
     withSourcesJar()
 }
 
+// Restrict the sources JAR to Java sources only
+tasks.named<Jar>("sourcesJar") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    // allow only actual Java sources & descriptors
+    include("**/*.java", "**/module-info.java", "**/package-info.java")
+    // hard-exclude everything JNI/native-ish living under src/main/java/opencc
+    exclude(
+        "**/natives/**",
+        "**/*.so", "**/*.dll", "**/*.dylib",
+        "**/*.h", "**/*.hpp", "**/*.cpp", "**/*.c",
+        "**/*.txt", "**/*.bin"
+    )
+}
+
 tasks.withType<Javadoc> {
     options.encoding = "UTF-8"
 }
