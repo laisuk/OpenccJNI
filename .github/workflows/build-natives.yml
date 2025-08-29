@@ -188,10 +188,10 @@ jobs:
             - Wrapper: OpenccWrapper.{so|dylib|dll}
             - CAPI:    opencc_fmmseg_capi.{so|dylib|dll}
             
-            Place both files in the same directory at runtime.
+          Place both files in the same directory at runtime.
           If embedding in JAR, use: /opencc/natives/${P}/
-            EOF
-            done
+          EOF
+          done
 
       - name: Create ZIP bundles
         run: |
