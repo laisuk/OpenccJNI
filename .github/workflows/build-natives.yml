@@ -182,7 +182,7 @@ jobs:
           # Tiny README
           for P in linux-x86_64 macos-arm64 windows-x86_64; do
             cat > "bundle/$P/README.txt" <<EOF
-            OpenccJNI natives for ${P} (${TAG})
+          OpenccJNI natives for ${P} (${TAG})
 
           Contents:
             - Wrapper: OpenccWrapper.{so|dylib|dll}
