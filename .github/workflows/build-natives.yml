@@ -10,20 +10,17 @@ permissions:
   contents: read
 
 env:
-  # JNI sources (*.cpp, *.h, *.java are together here)
+  # JNI sources live alongside Java in the opencc package dir
   CPP_SRC: openccjni/src/main/java/opencc/OpenccWrapper.cpp
   JAVA_SRC_CLASS: openccjni/src/main/java/opencc/OpenccWrapper.java
 
-  # Include directory for headers (you said .h is in the same opencc/ dir)
+  # Headers and prebuilt CAPI libs are also in this dir (per your tree)
   CAPI_INCLUDE: openccjni/src/main/java/opencc
-
-  # Prebuilt CAPI library locations inside resources
   LINUX_LIB_DIR: openccjni/src/main/java/opencc
   MACOS_ARM64_LIB_DIR: openccjni/src/main/java/opencc
 
-  # Exact filenames we’ll link against (avoid -l<name> ambiguity)
-  LINUX_CAPI_FILE: libopencc_fmmseg_capi.so
-  MACOS_CAPI_FILE: libopencc_fmmseg_capi.dylib
+  # Library name for -l<name> (maps to libopencc_fmmseg_capi.{so,dylib})
+  CAPI_LIB_NAME: opencc_fmmseg_capi
 
 jobs:
   linux:
@@ -47,7 +44,6 @@ jobs:
         run: |
           ls -la .
           ls -la openccjni/src/main/java/opencc || true
-          ls -la "${{ env.LINUX_LIB_DIR }}" || true
 
       - name: Generate JNI header (optional)
         run: |
@@ -55,7 +51,7 @@ jobs:
 
       - name: Build libOpenccWrapper.so
         run: |
-          test -f "${{ env.LINUX_LIB_DIR }}/${{ env.LINUX_CAPI_FILE }}" || (echo "Missing CAPI at ${{ env.LINUX_LIB_DIR }}/${{ env.LINUX_CAPI_FILE }}" && exit 1)
+          test -f "${{ env.LINUX_LIB_DIR }}/libopencc_fmmseg_capi.so" || (echo "Missing CAPI at ${{ env.LINUX_LIB_DIR }}/libopencc_fmmseg_capi.so" && exit 1)
           mkdir -p build/linux-x86_64
           g++ -shared -fPIC -O2 -std=c++17 \
             -o build/linux-x86_64/libOpenccWrapper.so \
@@ -64,9 +60,8 @@ jobs:
             -I "${JAVA_HOME}/include" \
             -I "${JAVA_HOME}/include/linux" \
             -I "${{ env.CAPI_INCLUDE }}" \
-            -L "${{ env.LINUX_LIB_DIR }}" -Wl,-rpath,'$ORIGIN' \
-            -Wl,-rpath,'$ORIGIN/.' \
-            -Wl,--no-as-needed -l:"${{ env.LINUX_CAPI_FILE }}"
+            -L "${{ env.LINUX_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
+            -Wl,-rpath,'$ORIGIN'
           file build/linux-x86_64/libOpenccWrapper.so
 
       - name: Upload artifact (Linux .so)
@@ -94,7 +89,6 @@ jobs:
         run: |
           ls -la .
           ls -la openccjni/src/main/java/opencc || true
-          ls -la "${{ env.MACOS_ARM64_LIB_DIR }}" || true
 
       - name: Generate JNI header (optional)
         run: |
@@ -102,7 +96,7 @@ jobs:
 
       - name: Build libOpenccWrapper.dylib
         run: |
-          test -f "${{ env.MACOS_ARM64_LIB_DIR }}/${{ env.MACOS_CAPI_FILE }}" || (echo "Missing CAPI at ${{ env.MACOS_ARM64_LIB_DIR }}/${{ env.MACOS_CAPI_FILE }}" && exit 1)
+          test -f "${{ env.MACOS_ARM64_LIB_DIR }}/libopencc_fmmseg_capi.dylib" || (echo "Missing CAPI at ${{ env.MACOS_ARM64_LIB_DIR }}/libopencc_fmmseg_capi.dylib" && exit 1)
           mkdir -p build/macos-arm64
           clang++ -shared -fPIC -O2 -std=c++17 \
             -o build/macos-arm64/libOpenccWrapper.dylib \
@@ -111,10 +105,8 @@ jobs:
             -I "${JAVA_HOME}/include" \
             -I "${JAVA_HOME}/include/darwin" \
             -I "${{ env.CAPI_INCLUDE }}" \
-            -L "${{ env.MACOS_ARM64_LIB_DIR }}" \
-            -Wl,-rpath,@loader_path \
-            -Wl,-rpath,@loader_path/. \
-            -l:"${{ env.MACOS_CAPI_FILE }}"
+            -L "${{ env.MACOS_ARM64_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
+            -Wl,-rpath,@loader_path
           file build/macos-arm64/libOpenccWrapper.dylib
 
       - name: Upload artifact (macOS .dylib)
