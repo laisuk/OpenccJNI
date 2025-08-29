@@ -2,8 +2,29 @@ package opencc;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+/**
+ * Java binding for OpenCC (Open Chinese Convert).
+ * <p>
+ * Provides both static utility methods for one-off conversions and
+ * instance methods with a configurable conversion profile.
+ * This class loads its native JNI wrapper {@code OpenccWrapper}
+ * and delegates text conversion to the underlying C API implementation.
+ * </p>
+ *
+ * <h2>Usage examples:</h2>
+ *
+ * <pre>{@code
+ * // Static one-off conversion
+ * String output = OpenCC.convert("汉字", "s2t");
+ *
+ * // Instance-based conversion with persistent config
+ * OpenCC cc = new OpenCC("tw2s");
+ * String result = cc.convert("繁體字");
+ * }</pre>
+ */
 public final class OpenCC {
     static {
         try {
@@ -18,22 +39,38 @@ public final class OpenCC {
         }
     }
 
-    // Thread-local native wrapper for OpenCC (safe for parallel use)
+    /**
+     * Thread-local native wrapper for OpenCC (safe for parallel use).
+     */
     private static final ThreadLocal<OpenccWrapper> WRAPPER =
             ThreadLocal.withInitial(OpenccWrapper::new);
 
-    // Supported OpenCC config names
+    /**
+     * Supported OpenCC configuration names (conversion profiles).
+     */
     private static final Set<String> CONFIG_SET = new HashSet<>(Arrays.asList(
             "s2t", "t2s", "s2tw", "tw2s", "s2twp", "tw2sp", "s2hk", "hk2s",
             "t2tw", "t2twp", "t2hk", "tw2t", "tw2tp", "hk2t", "t2jp", "jp2t"
     ));
 
-    // Default config
+    /**
+     * Default configuration if none is specified.
+     */
     private static final String DEFAULT_CONFIG = "s2t";
-    private static String lastError;
 
     /**
-     * Static utility method for one-off conversion with explicit config.
+     * Last error message encountered by OpenCC operations.
+     */
+    private static String lastError;
+
+    // ----- Static Utility Methods -----
+
+    /**
+     * Converts input text using a specified configuration.
+     *
+     * @param input  the input string to convert
+     * @param config the configuration key (e.g., "s2t", "tw2s")
+     * @return the converted string, or original input if config is invalid
      */
     public static String convert(String input, String config) {
         if (!CONFIG_SET.contains(config)) {
@@ -44,7 +81,12 @@ public final class OpenCC {
     }
 
     /**
-     * Static utility method for one-off conversion with explicit config.
+     * Converts input text using a specified configuration, with optional punctuation conversion.
+     *
+     * @param input       the input string to convert
+     * @param config      the configuration key (e.g., "s2t", "tw2s")
+     * @param punctuation whether to convert punctuation as well
+     * @return the converted string, or original input if config is invalid
      */
     public static String convert(String input, String config, boolean punctuation) {
         if (!CONFIG_SET.contains(config)) {
@@ -55,7 +97,10 @@ public final class OpenCC {
     }
 
     /**
-     * Static method to check if the text is Chinese.
+     * Checks whether the given text contains Chinese characters.
+     *
+     * @param text the text to check
+     * @return non-zero if Chinese characters are detected, 0 otherwise
      */
     public static int zhoCheck(String text) {
         if (text == null || text.isEmpty()) {
@@ -66,14 +111,23 @@ public final class OpenCC {
 
     // ----- Instance Implementation -----
 
-    // Instance-level immutable config
+    /**
+     * The current configuration used by this instance.
+     */
     private String config;
 
-    // Constructor
+    /**
+     * Creates an {@code OpenCC} instance with the default configuration ("s2t").
+     */
     public OpenCC() {
         this.config = DEFAULT_CONFIG;
     }
 
+    /**
+     * Creates an {@code OpenCC} instance with a specified configuration.
+     *
+     * @param config the configuration key (if invalid, defaults to "s2t")
+     */
     public OpenCC(String config) {
         if (!CONFIG_SET.contains(config)) {
             setLastError("Invalid config: " + config);
@@ -83,28 +137,40 @@ public final class OpenCC {
     }
 
     /**
-     * Instance method to convert using the current config.
+     * Converts input text using this instance's configuration.
+     *
+     * @param input the input string to convert
+     * @return the converted string
      */
     public String convert(String input) {
         return WRAPPER.get().convert(input, this.config, false);
     }
 
     /**
-     * Instance method to convert using the current config.
+     * Converts input text using this instance's configuration,
+     * with optional punctuation conversion.
+     *
+     * @param input       the input string to convert
+     * @param punctuation whether to convert punctuation as well
+     * @return the converted string
      */
     public String convert(String input, boolean punctuation) {
         return WRAPPER.get().convert(input, this.config, punctuation);
     }
 
     /**
-     * Returns the current config.
+     * Returns the current configuration for this instance.
+     *
+     * @return the configuration key
      */
     public String getConfig() {
         return this.config;
     }
 
     /**
-     * Set the current config.
+     * Updates the configuration for this instance.
+     *
+     * @param config the configuration key (if invalid, defaults to "s2t")
      */
     public void setConfig(String config) {
         if (!CONFIG_SET.contains(config)) {
@@ -114,10 +180,30 @@ public final class OpenCC {
         this.config = config;
     }
 
+    /**
+     * Returns the list of supported configuration keys.
+     *
+     * @return immutable list of supported configs
+     */
+    public static List<String> getSupportedConfigs() {
+        return List.of("s2t", "t2s", "s2tw", "tw2s", "s2twp", "tw2sp", "s2hk", "hk2s",
+                "t2tw", "tw2t", "t2twp", "tw2tp", "t2hk", "hk2t", "t2jp", "jp2t");
+    }
+
+    /**
+     * Returns the last error message encountered.
+     *
+     * @return last error as string
+     */
     public String getLastError() {
         return lastError;
     }
 
+    /**
+     * Sets the last error message (used internally).
+     *
+     * @param lastError the error message
+     */
     public void setLastError(String lastError) {
         OpenCC.lastError = lastError;
     }

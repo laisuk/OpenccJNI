@@ -11,18 +11,24 @@ import java.util.concurrent.ConcurrentHashMap;
  * Native library loader with system-first fallback-to-resources behavior.
  * <p>
  * Resolution order per library base name:
- * 1) System.loadLibrary(baseName)  (PATH / java.library.path / current dir, etc.)
- * 2) Extract "/opencc/natives/{os}-{arch}/{System.mapLibraryName(baseName)}" to a shared temp dir and System.load()
+ * <ol>
+ *   <li>{@link System#loadLibrary(String)} (PATH / java.library.path / current dir, etc.)</li>
+ *   <li>Extract from JAR: {@code /opencc/natives/{os}-{arch}/{System.mapLibraryName(baseName)}} into a shared temp dir, then {@link System#load(String)}</li>
+ * </ol>
  * <p>
  * Resource layout examples in your JAR:
- * opencc/natives/windows-x86_64/OpenccWrapper.dll
- * opencc/natives/windows-x86_64/opencc_fmmseg_capi.dll
- * opencc/natives/linux-x86_64/libOpenccWrapper.so
- * opencc/natives/macos-aarch64/libOpenccWrapper.dylib
+ * <ul>
+ *   <li>{@code opencc/natives/windows-x86_64/OpenccWrapper.dll}</li>
+ *   <li>{@code opencc/natives/windows-x86_64/opencc_fmmseg_capi.dll}</li>
+ *   <li>{@code opencc/natives/linux-x86_64/libOpenccWrapper.so}</li>
+ *   <li>{@code opencc/natives/macos-aarch64/libOpenccWrapper.dylib}</li>
+ * </ul>
  * <p>
  * Extras:
- * - Optional entries: prefix with '?' to ignore missing resource (e.g., "?libwinpthread-1").
- * - Idempotent: same baseName won’t be loaded twice.
+ * <ul>
+ *   <li>Optional entries: prefix with '?' to ignore missing resource (e.g., {@code "?libwinpthread-1"}).</li>
+ *   <li>Idempotent: same baseName won’t be loaded twice.</li>
+ * </ul>
  */
 public final class NativeLibLoader {
     private static final ConcurrentHashMap<String, Boolean> LOADED = new ConcurrentHashMap<>();
@@ -36,6 +42,10 @@ public final class NativeLibLoader {
 
     /**
      * Load a single library by base name: try system first, else extract+load.
+     *
+     * @param baseName the logical library name (unmapped, e.g. "OpenccWrapper");
+     *                 mapped via {@link System#mapLibraryName(String)} for the actual file
+     * @throws UnsatisfiedLinkError if the library cannot be found or loaded
      */
     public static void loadOrExtract(String baseName) {
         final String key = normalizeKey(baseName);
@@ -51,8 +61,14 @@ public final class NativeLibLoader {
     }
 
     /**
-     * Load a chain of libraries (deps first, main last). Each entry is system-first, then resource fallback.
+     * Load a chain of libraries (dependencies first, main last).
+     * <p>
+     * Each entry is attempted with system-first, then resource fallback.
      * Optional entries can be prefixed with '?' — missing resources are skipped without error.
+     *
+     * @param baseNames one or more library base names to load, in dependency order;
+     *                  prefix with '?' to mark as optional
+     * @throws UnsatisfiedLinkError if any required library cannot be found or loaded
      */
     public static void loadChain(String... baseNames) {
         if (baseNames == null || baseNames.length == 0) return;

@@ -3,10 +3,19 @@ plugins {
 }
 
 group = "io.github.laisuk"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+tasks.withType<Javadoc> {
+    options.encoding = "UTF-8"
 }
 
 dependencies {
@@ -23,7 +32,11 @@ tasks.test {
 tasks.jar {
     manifest {
         attributes(
-                "Automatic-Module-Name" to "io.github.laisuk.openccjni"
+            "Automatic-Module-Name" to "io.github.laisuk.openccjni",
+            "Implementation-Title" to "OpenccJNI",
+            "Implementation-Version" to project.version
         )
     }
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
 }
