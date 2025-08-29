@@ -18,8 +18,8 @@ env:
   CAPI_INCLUDE: openccjni/src/main/java/opencc
 
   # Prebuilt CAPI library locations inside resources
-  LINUX_LIB_DIR: openccjni/src/main/resources/opencc/natives/linux-x86_64
-  MACOS_ARM64_LIB_DIR: openccjni/src/main/resources/opencc/natives/macos-aarch64
+  LINUX_LIB_DIR: openccjni/src/main/java/opencc
+  MACOS_ARM64_LIB_DIR: openccjni/src/main/java/opencc
 
   # Exact filenames we’ll link against (avoid -l<name> ambiguity)
   LINUX_CAPI_FILE: libopencc_fmmseg_capi.so
