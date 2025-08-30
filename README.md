@@ -1,12 +1,12 @@
-# OpenccJNI — Java JNI wrapper for opencc-fmmseg
+# OpenccJNI: Java JNI wrapper for opencc-fmmseg
 
 > High-performance Simplified/Traditional Chinese conversion using OpenCC with FMMSEG longest-match segmentation — from
 > Java, via JNI.
 
-[![Build](https://img.shields.io/badge/build-gradle-green)](https://gradle.org/)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.laisuk/openccjni.svg)](https://central.sonatype.com/artifact/io.github.laisuk/openccjni)
+[![javadoc](https://javadoc.io/badge2/io.github.laisuk/openccjni/javadoc.svg)](https://javadoc.io/doc/io.github.laisuk/openccjni)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-win%20%7C%20linux%20%7C%20macOS-informational)](#-supported-platforms)
-<!-- TODO: add real CI + release badges once ready -->
 
 ---
 
@@ -18,11 +18,93 @@
   typically **do not need** to call `NativeLibLoader` yourself.
 - **Wide config support**: Common OpenCC configurations out of the box (see below).
 
-> This repository targets **openccjni-fmmseg-capi** only. Jieba JNI will be provided in a separate repo later.
+> This repository targets [**opencc-fmmseg-capi**](https://github.com/laisuk/opencc-fmmseg) only. Jieba JNI will be
+> provided in a separate repo later.
 
 ---
 
-## 📦 Installation
+## Getting Started
+
+`openccjni` is a small Java JNI wrapper around OpenCC + FMM segmentation for high-quality Simplified/Traditional Chinese
+conversion. It ships with a Java API and loads a native library at runtime.
+
+## Installation
+
+### Gradle (Kotlin DSL)
+
+```kotlin
+dependencies {
+    implementation("io.github.laisuk:openccjni:1.0.0")
+}
+```
+
+### Maven
+
+```xml
+
+<dependency>
+    <groupId>io.github.laisuk</groupId>
+    <artifactId>openccjni</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+> Requires Java 8+
+
+## Quick start
+
+### A) One-liner conversion (static helper)
+
+```java
+import opencc.OpenCC;
+
+public class Demo {
+    static void main(String[] args) {
+        String text = "汉字转换测试";
+        String out = OpenCC.convert(text, "s2t"); // Simplified → Traditional
+        System.out.println(out);
+    }
+}
+```
+
+### B) Instance usage (explicit wrapper)
+
+If you prefer managing the native handle explicitly:
+
+```java
+import opencc.OpenccWrapper;
+
+public class Demo {
+    static void main(String[] args) {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            String out = w.convert("汉字转换测试", "s2t");
+            System.out.println(out);
+        }
+    }
+}
+```
+
+Both styles are thread-safe: the static helper uses a ThreadLocal native wrapper under the hood; the instance style is
+safe to reuse across calls and auto-closes.
+
+### Supported config names
+
+```
+s2t, t2s, s2tw, tw2s, s2twp, tw2sp,
+s2hk, hk2s, t2tw, t2twp, t2hk,
+tw2t, tw2tp, hk2t, t2jp, jp2t
+```
+
+Example:
+
+```text
+OpenCC.convert("後臺處理程序", "t2s"); // → "后台处理程序"
+
+```
+
+---
+
+## 📦 Library Installation
 
 - **A — JAR with embedded natives (recommended)**  
   Embed natives under:  
@@ -59,14 +141,6 @@ public class Demo {
         System.out.println(output);  // 漢字轉換測試
     }
 }
-```
-
-### Supported config names
-
-```
-s2t, t2s, s2tw, tw2s, s2twp, tw2sp,
-s2hk, hk2s, t2tw, t2twp, t2hk,
-tw2t, tw2tp, hk2t, t2jp, jp2t
 ```
 
 > Internally, `OpenCC` typically uses a thread-local `OpenccWrapper` instance, so concurrent conversions are safe

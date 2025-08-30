@@ -15,15 +15,15 @@ repositories {
     mavenCentral()
 }
 
-tasks.withType<JavaCompile>().configureEach {
-    if (JavaVersion.current().isJava9Compatible) {
-        options.release.set(8)
-    } else {
-        // Fallback for Gradle running on Java 8
-        sourceCompatibility = "1.8"
-        targetCompatibility = "1.8"
-    }
-}
+//tasks.withType<JavaCompile>().configureEach {
+//    if (JavaVersion.current().isJava9Compatible) {
+//        options.release.set(8)
+//    } else {
+//        // Fallback for Gradle running on Java 8
+//        sourceCompatibility = "1.8"
+//        targetCompatibility = "1.8"
+//    }
+//}
 
 java {
     withJavadocJar()
@@ -116,8 +116,9 @@ publishing {
                     "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
             )
             credentials {
-                username = System.getenv("OSSRH_USERNAME") ?: findProperty("ossrhUsername") as String?
-                password = System.getenv("OSSRH_PASSWORD") ?: findProperty("ossrhPassword") as String?
+                // Use Central Portal token credentials
+                username = findProperty("centralUsername") as String? ?: System.getenv("CENTRAL_USERNAME")
+                password = findProperty("centralPassword") as String? ?: System.getenv("CENTRAL_PASSWORD")
             }
         }
     }
@@ -133,8 +134,8 @@ signing {
     }
 }
 
-val portalUser = (System.getenv("OSSRH_USERNAME") ?: findProperty("ossrhUsername") as String?)
-val portalPass = (System.getenv("OSSRH_PASSWORD") ?: findProperty("ossrhPassword") as String?)
+val portalUser = (System.getenv("CENTRAL_USERNAME") ?: findProperty("centralUsername") as String?)
+val portalPass = (System.getenv("CENTRAL_PASSWORD") ?: findProperty("centralPassword") as String?)
 val portalAuth: String = Base64.getEncoder().encodeToString("${portalUser}:${portalPass}".toByteArray())
 
 // Use your root namespace (groupId root), e.g. "io.github.laisuk"
