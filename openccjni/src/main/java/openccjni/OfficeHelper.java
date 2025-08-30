@@ -294,7 +294,9 @@ public class OfficeHelper {
             mimeEntry.setCompressedSize(mimeBytes.length);
 
             CRC32 crc = new CRC32();
-            crc.update(mimeBytes);
+//            crc.update(mimeBytes);
+            // Java 8 zip checksum
+            crc.update(mimeBytes, 0, mimeBytes.length);
             mimeEntry.setCrc(crc.getValue());
 
             zos.putNextEntry(mimeEntry);
