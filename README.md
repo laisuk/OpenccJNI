@@ -56,13 +56,13 @@ dependencies {
 ### A) One-liner conversion (static helper)
 
 ```java
-import opencc.OpenCC;
+import openccjni.OpenCC;
 
 public class Demo {
     static void main(String[] args) {
         String text = "汉字转换测试";
         String out = OpenCC.convert(text, "s2t"); // Simplified → Traditional
-        System.out.println(out);
+        System.out.println(out);  // 漢字轉換測試
     }
 }
 ```
@@ -72,13 +72,13 @@ public class Demo {
 If you prefer managing the native handle explicitly:
 
 ```java
-import opencc.OpenccWrapper;
+import openccjni.OpenccWrapper;
 
 public class Demo {
     static void main(String[] args) {
         try (OpenccWrapper w = new OpenccWrapper()) {
             String out = w.convert("汉字转换测试", "s2t");
-            System.out.println(out);
+            System.out.println(out);  // 漢字轉換測試
         }
     }
 }
@@ -97,8 +97,8 @@ tw2t, tw2tp, hk2t, t2jp, jp2t
 
 Example:
 
-```text
-OpenCC.convert("後臺處理程序", "t2s"); // → "后台处理程序"
+```java
+string converted = OpenCC.convert("後臺處理程序", "t2s"); // → "后台处理程序"
 
 ```
 
@@ -290,7 +290,7 @@ OpenCC.getLastError() -> String
 
 ### Instance Methods
 
-```text
+```markdown
 // Constructors
 new OpenCC()                   // defaults to "s2t"
 new OpenCC(String config)      // uses given config (fallback to "s2t" if invalid)
@@ -391,7 +391,7 @@ bin/openccjni-cli.bat office -c s2t -i book.docx -o book_converted.docx
 
 ```bash
 bin/openccjni-cli office --help 
-Usage: opencccli office [-hpV] [--auto-ext] [--[no-]keep-font] -c=<conversion>
+Usage: opencccjni-li office [-hpV] [--auto-ext] [--[no-]keep-font] -c=<conversion>
                         [--format=<format>] -i=<file> [-o=<file>]
 Convert Office documents using OpenccJNI
       --auto-ext          Auto-append extension to output file
