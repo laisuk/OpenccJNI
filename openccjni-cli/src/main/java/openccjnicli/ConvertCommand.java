@@ -84,7 +84,7 @@ public class ConvertCommand implements Runnable {
                 }
 //                inputText = new String(System.in.readAllBytes(), inputCharset);
                 // Java 8: no InputStream.readAllBytes, use a helper
-                inputText = new String(readAllBytes(), inputCharset);
+                inputText = new String(inputStreamReadAllBytes(), inputCharset);
             }
 
             String outputText = opencc.convert(inputText, punct);
@@ -128,7 +128,7 @@ public class ConvertCommand implements Runnable {
         }
     }
 
-    private static byte[] readAllBytes() throws IOException {
+    private static byte[] inputStreamReadAllBytes() throws IOException {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         byte[] tmp = new byte[8192];
         int n;
@@ -137,6 +137,4 @@ public class ConvertCommand implements Runnable {
         }
         return buffer.toByteArray();
     }
-
-
 }
