@@ -26,12 +26,13 @@
 
 - **A — JAR with embedded natives (recommended)**  
   Embed natives under:  
-  `openccjni/natives/{os}-{arch}/{System.mapLibraryName("OpenccWrapper")}`  
+  `openccjni/natives/{os}-{arch}/{System.mapLibraryName("OpenccWrapper")}` and,  
+  `openccjni/natives/{os}-{arch}/{System.mapLibraryName("opencc_fmmseg_capi")}`  
   The `OpenCC` class will attempt `System.loadLibrary` first, then auto-extract from resources to a shared temp dir and
   `System.load()` it.
 
 - **B — System-installed natives**  
-  Put `OpenccWrapper.dll` / `libOpenccWrapper.so` / `libOpenccWrapper.dylib` on your `PATH` / `LD_LIBRARY_PATH` /
+  Put `OpenccWrapper.dll` + `opencc_fmmseg_capi.dll`/ `libOpenccWrapper.so` + `libopencc_fmmseg_capi.so` / `libOpenccWrapper.dylib` + `libopencc_fmmseg_capi.dylib` on your `PATH` / `LD_LIBRARY_PATH` /
   `DYLD_LIBRARY_PATH`.
 
 > Maven Central/Gradle coordinates will be added when published. For now, use a local or GitHub release JAR.
@@ -44,7 +45,7 @@
 import openccjni.OpenCC;  // High-level, autoloads native on first use
 
 public class Demo {
-    public static void main(String[] args) {
+    static void main(String[] args) {
         // OpenCC autoloads the native library internally.
         // No need to call NativeLibLoader explicitly.
 

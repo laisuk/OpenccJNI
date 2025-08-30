@@ -11,10 +11,7 @@ repositories {
 }
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    // core library (nodeps)
+    // core library
     implementation(project(":openccjni"))
     // CLI parser
     implementation("info.picocli:picocli:4.7.7")
@@ -59,8 +56,4 @@ val fatJar = tasks.register<Jar>("fatJar") {
     })
 
     archiveClassifier.set("all")
-}
-
-tasks.test {
-    useJUnitPlatform()
 }
