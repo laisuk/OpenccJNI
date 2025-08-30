@@ -265,7 +265,7 @@ String out = OpenCC.convert("“汉字”", "s2t", true);  // 「漢字」
 
 ---
 
-### `openccjni-cli`
+## `openccjni-cli`
 
 Command-line tool based on `OpenccJNI`.
 
@@ -282,6 +282,8 @@ Zip file will be created in: `openccjni-cli/build/distributions/openccjni-cli-<v
 ```bash
 bin/openccjni-cli.bat convert -c s2t -i input.txt -o output.txt
 ```
+
+### Plain Text conversion:
 
 ```bash
 bin/openccjni-cli convert --help                                                           
@@ -305,7 +307,7 @@ Convert plain text using OpenccJNI
   -V, --version              Print version information and exit.
 ```
 
-#### Office document conversion:
+### Office document conversion:
 
 ```bash
 bin/openccjni-cli.bat office -c s2t -i book.docx -o book_converted.docx
@@ -340,7 +342,7 @@ Convert Office documents using OpenccJNI
 
 ---
 
-## 🧾 Encodings (Charsets)
+### 🧾 Encodings (Charsets)
 
 - **Linux/macOS**: Terminals are UTF-8 by default. You usually don’t need to set anything.
 - **Windows**: The console isn’t always UTF-8. If you’re piping or using non-UTF-8 files, set encodings explicitly.
@@ -354,7 +356,7 @@ Convert Office documents using OpenccJNI
 > The charset `<name>` is any value accepted by Java’s `Charset.forName(...)`.  
 > Names are **case-insensitive** and aliases are supported.
 
-#### Common charsets (quick list)
+### Common charsets (quick list)
 
 - **Unicode**: `UTF-8`, `UTF-16`, `UTF-16LE`, `UTF-16BE`
 - **Chinese (Traditional/Simplified)**: `Big5`, `Big5-HKSCS`, `GBK`, `GB18030`, `GB2312`
@@ -389,9 +391,10 @@ This project is licensed under the **MIT License**. See [LICENSE](LICENSE).
 
 **Acknowledgements**
 
-- OpenCC and related dictionary projects.
+- [OpenCC](https://github.com/BYVoid/OpenCC) and related dictionary projects.
 - FMMSEG longest-match segmentation.
-- `opencc_fmmseg_capi`, the Rust C API native library that powers the JNI bridge.
+- `opencc_fmmseg_capi` from [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg), Rust C API native library that
+  powers the JNI bridge.
 
 ---
 
