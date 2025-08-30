@@ -344,7 +344,7 @@ Convert Office documents using OpenccJNI
 
 ---
 
-### 🧾 Encodings (Charsets)
+## 🧾 Encodings (Charsets)
 
 - **Linux/macOS**: Terminals are UTF-8 by default. You usually don’t need to set anything.
 - **Windows**: The console isn’t always UTF-8. If you’re piping or using non-UTF-8 files, set encodings explicitly.
