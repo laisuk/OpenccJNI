@@ -185,6 +185,84 @@ openccjni/
 
 ---
 
+## 📖 API Reference
+
+The main entry point is the [`OpenCC`](openccjni/src/main/java/openccjni/OpenCC.java) class.  
+It provides both **static one-off helpers** and an **instance API** with a persistent conversion profile.
+
+### Static Methods
+
+```text
+// Create a new instance with the given config (default: "s2t")
+OpenCC.fromConfig(String config)
+
+// One-off conversion
+OpenCC.convert(String input, String config)
+OpenCC.convert(String input, String config, boolean punctuation)
+
+// Check for Traditional/Simplified Chinese characters
+// Returns: 1 - Traditional, 2 - Simplified, 0 - Others
+OpenCC.zhoCheck(String text) -> int
+
+// Supported config keys
+OpenCC.getSupportedConfigs() -> List<String>
+
+// Last error message
+OpenCC.getLastError() -> String
+
+```
+
+### Instance Methods
+
+```text
+// Constructors
+new OpenCC()                   // defaults to "s2t"
+new OpenCC(String config)      // uses given config (fallback to "s2t" if invalid)
+
+// Conversion
+cc.convert(String input)
+cc.convert(String input, boolean punctuation)
+
+// Config management
+cc.getConfig() -> String
+cc.setConfig(String config)
+
+// Error handling
+cc.getLastError() -> String
+cc.setLastError(String err)
+
+```
+
+### Supported Configurations
+
+The following configuration keys are recognized (matching OpenCC profiles
+):
+
+- `s2t` – Simplified → Traditional
+- `t2s` – Traditional → Simplified
+- `s2tw`, `tw2s`, `s2twp`, `tw2sp` – Taiwan variants
+- `s2hk`, `hk2s` – Hong Kong variants
+- `t2tw`, `tw2t`, `t2twp`, `tw2tp` – Traditional ↔ Taiwan
+- `t2hk`, `hk2t` – Traditional ↔ Hong Kong
+- `t2jp`, `jp2t` – Traditional ↔ Japanese
+
+### Usage Examples
+
+```java
+// Static one-off conversion
+String out = OpenCC.convert("汉字", "s2t");  // 漢字
+
+// Instance API with persistent config
+OpenCC cc = OpenCC.fromConfig("tw2s");  // 繁体字
+String out = cc.convert("繁體字");
+
+// With punctuation conversion
+String out = OpenCC.convert("“汉字”", "s2t", true);  // 「漢字」
+
+```
+
+---
+
 ## 📝 License
 
 This project is licensed under the **MIT License**. See [LICENSE](LICENSE).
