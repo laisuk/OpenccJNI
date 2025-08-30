@@ -283,7 +283,7 @@ Zip file will be created in: `openccjni-cli/build/distributions/openccjni-cli-<v
 bin/openccjni-cli.bat convert -c s2t -i input.txt -o output.txt
 ```
 
-### Plain Text conversion:
+### Plain Text Conversion:
 
 ```bash
 bin/openccjni-cli convert --help                                                           
@@ -307,7 +307,9 @@ Convert plain text using OpenccJNI
   -V, --version              Print version information and exit.
 ```
 
-### Office document conversion:
+### Office Document Conversion:
+
+Supported Office document formats: `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.odp`, `.epub`
 
 ```bash
 bin/openccjni-cli.bat office -c s2t -i book.docx -o book_converted.docx
