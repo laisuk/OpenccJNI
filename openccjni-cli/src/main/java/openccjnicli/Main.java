@@ -4,7 +4,7 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 @Command(
-        name = "openccjnicli",
+        name = "openccjni-cli",
         mixinStandardHelpOptions = true,
         version = "1.0.0",
         description = "\033[1;34mJava JNI OpenCC (OpenccJNI) CLI with multiple tools\033[0m",
