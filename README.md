@@ -255,8 +255,8 @@ The following configuration keys are recognized (matching OpenCC profiles
 String out = OpenCC.convert("汉字", "s2t");  // 漢字
 
 // Instance API with persistent config
-OpenCC cc = OpenCC.fromConfig("tw2s");  // 繁体字
-String out = cc.convert("繁體字");
+OpenCC cc = OpenCC.fromConfig("tw2s");
+String out = cc.convert("繁體字");  // 繁体字
 
 // With punctuation conversion
 String out = OpenCC.convert("“汉字”", "s2t", true);  // 「漢字」
