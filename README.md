@@ -32,7 +32,8 @@
   `System.load()` it.
 
 - **B — System-installed natives**  
-  Put `OpenccWrapper.dll` + `opencc_fmmseg_capi.dll`/ `libOpenccWrapper.so` + `libopencc_fmmseg_capi.so` / `libOpenccWrapper.dylib` + `libopencc_fmmseg_capi.dylib` on your `PATH` / `LD_LIBRARY_PATH` /
+  Put `OpenccWrapper.dll` + `opencc_fmmseg_capi.dll`/ `libOpenccWrapper.so` + `libopencc_fmmseg_capi.so` /
+  `libOpenccWrapper.dylib` + `libopencc_fmmseg_capi.dylib` on your `PATH` / `LD_LIBRARY_PATH` /
   `DYLD_LIBRARY_PATH`.
 
 > Maven Central/Gradle coordinates will be added when published. For now, use a local or GitHub release JAR.
@@ -260,6 +261,124 @@ String out = cc.convert("繁體字");
 // With punctuation conversion
 String out = OpenCC.convert("“汉字”", "s2t", true);  // 「漢字」
 
+```
+
+---
+
+### `openccjni-cli`
+
+Command-line tool based on `OpenccJNI`.
+
+#### Build
+
+```bash
+./gradlew distZip
+```
+
+Zip file will be created in: `openccjni-cli/build/distributions/openccjni-cli-<version>.zip`
+
+#### Run (after extracting)
+
+```bash
+bin/openccjni-cli.bat convert -c s2t -i input.txt -o output.txt
+```
+
+```bash
+bin/openccjni-cli convert --help                                                           
+Usage: openccjni-cli convert [-hpV] [--list-configs] -c=<conversion>
+                             [--con-enc=<encoding>] [-i=<file>]
+                             [--in-enc=<encoding>] [-o=<file>]
+                             [--out-enc=<encoding>]
+Convert plain text using OpenccJNI
+  -c, --config=<conversion>  Conversion configuration
+      --con-enc=<encoding>   Console encoding for interactive mode. Ignored if
+                               not attached to a terminal. Common <encoding>:
+                               UTF-8, GBK, Big5
+  -h, --help                 Show this help message and exit.
+  -i, --input=<file>         Input file
+      --in-enc=<encoding>    Input encoding
+      --list-configs         List all supported OpenccJNI conversion
+                               configurations
+  -o, --output=<file>        Output file
+      --out-enc=<encoding>   Output encoding
+  -p, --punct                Punctuation conversion (default: false)
+  -V, --version              Print version information and exit.
+```
+
+#### Office document conversion:
+
+```bash
+bin/openccjni-cli.bat office -c s2t -i book.docx -o book_converted.docx
+```
+
+```bash
+bin/openccjni-cli office --help 
+Usage: opencccli office [-hpV] [--auto-ext] [--[no-]keep-font] -c=<conversion>
+                        [--format=<format>] -i=<file> [-o=<file>]
+Convert Office documents using OpenccJNI
+      --auto-ext          Auto-append extension to output file
+  -c, --config=<conversion>
+                          Conversion configuration
+      --format=<format>   Target Office format (e.g., docx, xlsx, pptx, odt,
+                            epub)
+  -h, --help              Show this help message and exit.
+  -i, --input=<file>      Input Office file
+      --[no-]keep-font    Preserve font-family info (default: false)
+  -o, --output=<file>     Output Office file
+  -p, --punct             Punctuation conversion (default: false)
+  -V, --version           Print version information and exit.
+```
+
+#### Optional flags:
+
+- `--punct`: Enable punctuation conversion.
+- `--auto-ext`: Auto-append extension like `_converted`.
+- `--keep-font` / `--no-keep-font`: Preserve original fonts (Office only).
+- `--in-enc` / `--out-enc`: Specify encoding (e.g. `GBK`, `BIG5`, `UTF-8`).
+- `--format`: Force document format (e.g., `docx`, `epub`).
+- `--list-configs`: Show supported OpenCC configs.
+
+---
+
+## 🧾 Encodings (Charsets)
+
+- **Linux/macOS**: Terminals are UTF-8 by default. You usually don’t need to set anything.
+- **Windows**: The console isn’t always UTF-8. If you’re piping or using non-UTF-8 files, set encodings explicitly.
+
+### CLI flags (recommended)
+
+- `--in-enc <name>`   : Charset for reading input files (default: UTF-8)
+- `--out-enc <name>`  : Charset for writing output files (default: UTF-8)
+- `--con-enc <name>`  : Charset for *console* stdin/stdout on Windows (default: UTF-8)
+
+> The charset `<name>` is any value accepted by Java’s `Charset.forName(...)`.  
+> Names are **case-insensitive** and aliases are supported.
+
+#### Common charsets (quick list)
+
+- **Unicode**: `UTF-8`, `UTF-16`, `UTF-16LE`, `UTF-16BE`
+- **Chinese (Traditional/Simplified)**: `Big5`, `Big5-HKSCS`, `GBK`, `GB18030`, `GB2312`
+- **Japanese**: `Shift_JIS`, `windows-31j` (aka MS932), `EUC-JP`, `ISO-2022-JP`
+- **Korean**: `EUC-KR`, `MS949` (aka `x-windows-949`)
+- **SE Asia**: `TIS-620` (Thai), `windows-1258` (Vietnamese)
+- **Cyrillic**: `windows-1251`, `KOI8-R`, `KOI8-U`, `ISO-8859-5`
+- **Western Europe**: `ISO-8859-1`, `windows-1252`, `ISO-8859-15`
+- **Others (selected)**: `ISO-8859-2/3/4/7/8/9/13/16`, `windows-1250/1253/1254/1255/1256/1257`
+
+> Tip: `GB2312` is commonly an alias handled via `EUC-CN`/`GBK` on modern JDKs. Prefer `GBK` or `GB18030`.
+
+### Examples
+
+```bash
+# Linux/macOS (files)
+openccjni-cli convert -c t2s -i in_big5.txt --in-enc Big5 -o out_utf8.txt --out-enc UTF-8
+
+# Windows (pipe Big5 into the tool, keep console in GBK)
+Get-Content .\in_big5.txt -Encoding Big5 | openccjni-cli.bat convert -c t2s -p --con-enc GBK
+
+# Force UTF-8 console on Windows (PowerShell 7+)
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+openccjni-cli.bat convert -c s2t -p --con-enc UTF-8
 ```
 
 ---
