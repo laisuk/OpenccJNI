@@ -175,17 +175,7 @@ public final class NativeLibLoader {
         final String arch = detectArch();
 
         // Build candidate resource paths (prefer macos-arm64, fallback macos-aarch64)
-        final List<String> candidates = new ArrayList<>(2);
-        if ("macos".equals(os)) {
-            if ("arm64".equals(arch) || "aarch64".equals(arch)) {
-                candidates.add(String.format("/openccjni/natives/macos-arm64/%s", mapped));
-                candidates.add(String.format("/openccjni/natives/macos-aarch64/%s", mapped));
-            } else {
-                candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
-            }
-        } else {
-            candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
-        }
+        final List<String> candidates = getNativeStrings(os, arch, mapped);
 
         URL url = null;
         for (String res : candidates) {
@@ -196,11 +186,7 @@ public final class NativeLibLoader {
         // Windows: also try raw "<base>.dll" filename variant (keeps your original behavior)
         if (url == null && "windows".equals(os)) {
             final List<String> winCandidates = new ArrayList<>();
-            if ("macos".equals(os)) {
-                // (never hits)
-            } else {
-                winCandidates.add(String.format("/openccjni/natives/%s-%s/%s.dll", os, arch, baseName));
-            }
+            winCandidates.add(String.format("/openccjni/natives/%s-%s/%s.dll", os, arch, baseName));
             for (String res : winCandidates) {
                 url = NativeLibLoader.class.getResource(res);
                 if (url != null) break;
@@ -223,14 +209,29 @@ public final class NativeLibLoader {
 
         // Generous perms on Unix
         try {
-            out.toFile().setReadable(true, false);
-            out.toFile().setWritable(true, false);
-            out.toFile().setExecutable(true, false);
+            boolean readable = out.toFile().setReadable(true, false);
+            boolean writable = out.toFile().setWritable(true, false);
+            boolean executable = out.toFile().setExecutable(true, false);
         } catch (SecurityException ignored) {
         }
 
         out.toFile().deleteOnExit();
         return out;
+    }
+
+    private static List<String> getNativeStrings(String os, String arch, String mapped) {
+        final List<String> candidates = new ArrayList<>(2);
+        if ("macos".equals(os)) {
+            if ("arm64".equals(arch) || "aarch64".equals(arch)) {
+                candidates.add(String.format("/openccjni/natives/macos-arm64/%s", mapped));
+                candidates.add(String.format("/openccjni/natives/macos-aarch64/%s", mapped));
+            } else {
+                candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
+            }
+        } else {
+            candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
+        }
+        return candidates;
     }
 
     /* ===================== OS/Arch helpers ===================== */
@@ -253,7 +254,7 @@ public final class NativeLibLoader {
     static String detectOs() {
         if (isWindows()) return "windows";
         if (isMac()) return "macos";
-        if (isLinux()) return "linux";
+//        if (isLinux()) return "linux";
         return "linux"; // conservative default
     }
 

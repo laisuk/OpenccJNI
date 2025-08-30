@@ -15,6 +15,16 @@ repositories {
     mavenCentral()
 }
 
+tasks.withType<JavaCompile>().configureEach {
+    if (JavaVersion.current().isJava9Compatible) {
+        options.release.set(8)
+    } else {
+        // Fallback for Gradle running on Java 8
+        sourceCompatibility = "1.8"
+        targetCompatibility = "1.8"
+    }
+}
+
 java {
     withJavadocJar()
     withSourcesJar()

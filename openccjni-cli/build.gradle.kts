@@ -16,7 +16,7 @@ dependencies {
     // CLI parser
     implementation("info.picocli:picocli:4.7.7")
     // Generate GraalVM reflection config for picocli automatically
-    annotationProcessor("info.picocli:picocli-codegen:4.7.7")
+//    annotationProcessor("info.picocli:picocli-codegen:4.7.7")
 }
 
 // Application entrypoint (used by `run`, Jar manifest, etc.)
