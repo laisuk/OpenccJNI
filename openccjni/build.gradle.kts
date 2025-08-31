@@ -1,4 +1,4 @@
-import java.net.URL
+import java.net.URI
 import java.net.HttpURLConnection
 import java.util.Base64
 
@@ -20,8 +20,8 @@ tasks.withType<JavaCompile>().configureEach {
         options.release.set(8)
     } else {
         // Fallback for Gradle running on Java 8
-        sourceCompatibility = "1.8"
-        targetCompatibility = "1.8"
+//        sourceCompatibility = "1.8"
+//        targetCompatibility = "1.8"
     }
 }
 
@@ -156,7 +156,7 @@ tasks.register("uploadToPortal") {
         val urlStr = "https://ossrh-staging-api.central.sonatype.com/" +
                 "manual/upload/defaultRepository/$portalNamespace?publishing_type=user_managed"
 
-        val url = URL(urlStr)
+        val url = URI(urlStr).toURL()
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             setRequestProperty("Authorization", "Bearer $auth")
