@@ -134,8 +134,8 @@ signing {
     }
 }
 
-val portalUser = (System.getenv("CENTRAL_USERNAME") ?: findProperty("centralUsername") as String?)
-val portalPass = (System.getenv("CENTRAL_PASSWORD") ?: findProperty("centralPassword") as String?)
+val portalUser: String? = (findProperty("centralUsername") as String? ?: System.getenv("CENTRAL_USERNAME"))
+val portalPass: String? = (findProperty("centralPassword") as String? ?: System.getenv("CENTRAL_PASSWORD"))
 val portalAuth: String = Base64.getEncoder().encodeToString("${portalUser}:${portalPass}".toByteArray())
 
 // Use your root namespace (groupId root), e.g. "io.github.laisuk"
