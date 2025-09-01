@@ -161,7 +161,7 @@ Default resolution order used by `OpenCC`:
    ```
    /openccjni/natives/windows-x86_64/OpenccWrapper.dll
    /openccjni/natives/linux-x86_64/libOpenccWrapper.so
-   /openccjni/natives/macos-aarch64/libOpenccWrapper.dylib
+   /openccjni/natives/macos-arm64/libOpenccWrapper.dylib
    ```
 
 `NativeLibLoader` is still available for advanced/manual loading scenarios, but **not required** for typical usage.
@@ -177,7 +177,7 @@ Default resolution order used by `OpenCC`:
     - **Windows**: MinGW-w64 (posix-seh, e.g., x86_64-14.x). 32-bit builds via `i686` toolchain.
     - **Linux**: GCC/Clang with standard libc.
     - **macOS**: Xcode/Clang.
-- **Native dependency**: `openccjni-fmmseg-capi` (build or provide binaries on your link path).
+- **Native dependency**: `opencc_fmmseg_capi` (build from [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) Rust source or provide binaries on your link path).
 
 ### Generate JNI header
 
@@ -186,7 +186,7 @@ Default resolution order used by `OpenCC`:
 javac -h . src/main/java/openccjni/OpenccWrapper.java
 ```
 
-This produces a header like `opencc_OpenccWrapper.h` that your C/C++ file includes.
+This produces a header like `openccjni_OpenccWrapper.h` that your C/C++ file includes.
 
 ### Example link commands
 
