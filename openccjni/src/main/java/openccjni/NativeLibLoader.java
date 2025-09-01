@@ -34,6 +34,7 @@ public final class NativeLibLoader {
     private static final ConcurrentHashMap<String, Boolean> LOADED = new ConcurrentHashMap<>();
     private static final SecureRandom RNG = new SecureRandom();
     private static volatile Path SHARED_TEMP_DIR; // single extract dir per JVM
+    private static final ConcurrentHashMap<String, Object> LOCKS = new ConcurrentHashMap<>();
 
     private NativeLibLoader() {
     }
@@ -111,7 +112,7 @@ public final class NativeLibLoader {
             }
         }
 
-        // Third pass: load extracted ones in order
+        // Third pass: load extracted ones in order (with per-lib locks + rollback)
         for (LoadPlan p : plans) {
             if (p.systemLoaded) continue;
             if (p.extractedPath == null) {
@@ -121,8 +122,17 @@ public final class NativeLibLoader {
                 continue; // optional and not present
             }
             final String key = normalizeKey(p.base);
-            if (LOADED.putIfAbsent(key, Boolean.TRUE) != null) continue;
-            System.load(p.extractedPath.toAbsolutePath().toString());
+            final Object lock = LOCKS.computeIfAbsent(key, k -> new Object());
+            synchronized (lock) {
+                if (LOADED.containsKey(key)) continue; // another thread raced and won
+                LOADED.putIfAbsent(key, Boolean.TRUE);
+                try {
+                    System.load(p.extractedPath.toAbsolutePath().toString());
+                } catch (Throwable t) {
+                    LOADED.remove(key); // rollback the optimistic mark
+                    throw t;
+                }
+            }
         }
     }
 
