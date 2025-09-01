@@ -58,14 +58,33 @@ tasks.test {
     useJUnitPlatform()
 }
 
+// Helper: turn "1.8"/"8"/"17" into major bytecode (52/61/etc.)
+fun majorFromJavaVersion(vRaw: String): Int {
+    val n = if (vRaw.startsWith("1.")) vRaw.substring(2) else vRaw
+    return n.toInt() + 44
+}
+
 // 👇 Automatic-Module-Name + reproducible jars
-tasks.jar {
-    manifest {
-        attributes(
-            "Automatic-Module-Name" to "io.github.laisuk.openccjni",
-            "Implementation-Title" to "OpenccJNI",
-            "Implementation-Version" to project.version
-        )
+tasks.withType<Jar>().configureEach {
+    doFirst {
+        val cj = tasks.withType<JavaCompile>().findByName("compileJava")
+        val rawVer = when {
+            cj?.options?.release?.isPresent == true -> cj.options.release.get().toString()
+            cj != null -> cj.targetCompatibility
+            else -> JavaVersion.current().toString()
+        }
+        val bytecodeJava = if (rawVer == "8") "1.8" else rawVer
+        val major = majorFromJavaVersion(bytecodeJava)
+
+        manifest {
+            attributes(
+                "Automatic-Module-Name" to "io.github.laisuk.openccjni",
+                "Implementation-Title" to "OpenccJNI",
+                "Implementation-Version" to project.version,
+                "Major-Bytecode-Number" to major.toString(),
+                "Bytecode-Java-Version" to bytecodeJava
+            )
+        }
     }
     isPreserveFileTimestamps = false
     isReproducibleFileOrder = true
