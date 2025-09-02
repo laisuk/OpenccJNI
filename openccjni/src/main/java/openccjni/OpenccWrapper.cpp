@@ -20,6 +20,13 @@ JNIEXPORT jlong JNICALL Java_openccjni_OpenccWrapper_opencc_1new
 
 JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert
   (JNIEnv* env, jobject /*obj*/, jlong instance, jbyteArray input, jbyteArray config, jboolean punctuation) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) {
+            env->ThrowNew(exClass, "OpenCC instance is null");
+        }
+        return nullptr;
+    }
     // Convert inputs
     std::string inputStr  = jbyteArrayToString(env, input);
     std::string configStr = jbyteArrayToString(env, config);
@@ -46,24 +53,52 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert
 }
 
 JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1delete
-  (JNIEnv* /*env*/, jobject /*obj*/, jlong instance) {
+  (JNIEnv* env, jobject /*obj*/, jlong instance) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) {
+            env->ThrowNew(exClass, "OpenCC instance is null");
+        }
+        return;
+    }
     opencc_delete(reinterpret_cast<void*>(instance));
 }
 
 JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1zho_1check
   (JNIEnv* env, jobject /*obj*/, jlong instance, jbyteArray input) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) {
+            env->ThrowNew(exClass, "OpenCC instance is null");
+        }
+        return -1;
+    }
     std::string inputStr = jbyteArrayToString(env, input);
     int code = opencc_zho_check(reinterpret_cast<void*>(instance), inputStr.c_str());
     return static_cast<jint>(code);
 }
 
 JNIEXPORT jboolean JNICALL Java_openccjni_OpenccWrapper_opencc_1get_1parallel
-  (JNIEnv* /*env*/, jobject /*obj*/, jlong instance) {
+  (JNIEnv* env, jobject /*obj*/, jlong instance) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) {
+            env->ThrowNew(exClass, "OpenCC instance is null");
+        }
+        return JNI_FALSE;
+    }
     return opencc_get_parallel(reinterpret_cast<void*>(instance)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1set_1parallel
-  (JNIEnv* /*env*/, jobject /*obj*/, jlong instance, jboolean is_parallel) {
+  (JNIEnv* env, jobject /*obj*/, jlong instance, jboolean is_parallel) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) {
+            env->ThrowNew(exClass, "OpenCC instance is null");
+        }
+        return;
+    }
     opencc_set_parallel(reinterpret_cast<void*>(instance), (is_parallel == JNI_TRUE));
 }
 
