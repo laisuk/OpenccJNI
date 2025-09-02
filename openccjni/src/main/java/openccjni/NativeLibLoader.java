@@ -3,7 +3,7 @@ package openccjni;
 import java.io.*;
 import java.net.URL;
 import java.nio.file.*;
-import java.security.SecureRandom;
+// import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class NativeLibLoader {
     private static final ConcurrentHashMap<String, Boolean> LOADED = new ConcurrentHashMap<>();
-    private static final SecureRandom RNG = new SecureRandom();
+    // private static final SecureRandom RNG = new SecureRandom();
     private static volatile Path SHARED_TEMP_DIR; // single extract dir per JVM
     private static final ConcurrentHashMap<String, Object> LOCKS = new ConcurrentHashMap<>();
 
