@@ -135,10 +135,10 @@ public class OfficeHelper {
             boolean punctuation,
             boolean keepFont
     ) {
-        String tempDirName = format + "_temp_" + UUID.randomUUID();
-        Path tempDir = Paths.get(System.getProperty("java.io.tmpdir")).resolve(tempDirName);
+        Path tempDir = null;
 
         try {
+            tempDir = Files.createTempDirectory(format + "_temp_");
             unzip(inputFile.toPath(), tempDir);
 
             List<Path> targets = getTargetXmlPaths(format, tempDir);
