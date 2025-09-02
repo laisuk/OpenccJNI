@@ -10,16 +10,13 @@
 static std::optional<std::string> jbyteArrayToString(JNIEnv* env, jbyteArray array) {
     if (!array) return std::nullopt;
     jsize length = env->GetArrayLength(array);
-    jbyte* elements = env->GetByteArrayElements(array, nullptr);
-    if (elements == nullptr) {
-        jclass oomClass = env->FindClass("java/lang/OutOfMemoryError");
-        if (oomClass != nullptr) {
-            env->ThrowNew(oomClass, "GetByteArrayElements returned null");
+    std::string s(static_cast<size_t>(length), '\0');
+    if (length > 0) {
+        env->GetByteArrayRegion(array, 0, length, reinterpret_cast<jbyte*>(s.data()));
+        if (env->ExceptionCheck()) {
+            return std::nullopt;
         }
-        return std::nullopt;
     }
-    std::string s(reinterpret_cast<const char*>(elements), static_cast<size_t>(length));
-    env->ReleaseByteArrayElements(array, elements, JNI_ABORT);
     return s;
 }
 
