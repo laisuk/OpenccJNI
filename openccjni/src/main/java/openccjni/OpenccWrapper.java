@@ -160,7 +160,6 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @return {@code true} if parallel mode is enabled, {@code false} otherwise
      */
-    @SuppressWarnings("unused")
     public boolean isParallel() {
         return opencc_get_parallel(instance);
     }
@@ -170,7 +169,6 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param isParallel {@code true} to enable parallel mode, {@code false} to disable
      */
-    @SuppressWarnings("unused")
     public void setParallel(boolean isParallel) {
         opencc_set_parallel(instance, isParallel);
     }
