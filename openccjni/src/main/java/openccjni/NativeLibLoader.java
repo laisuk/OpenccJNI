@@ -281,7 +281,6 @@ public final class NativeLibLoader {
                 .replace("arm64", "aarch64");
         if (arch.contains("aarch64")) return "aarch64";
         if (arch.contains("x86_64")) return "x86_64";
-        if (arch.equals("arm64")) return "aarch64";
         if (arch.matches(".*\\bx86\\b.*")) return "x86";
         return arch; // pass through unknowns (e.g., riscv64)
     }
