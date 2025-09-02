@@ -270,7 +270,7 @@ public class OfficeHelper {
                                     Files.copy(path, zos);
                                     zos.closeEntry();
                                 } catch (IOException e) {
-                                    System.err.println("Error zipping file " + path + ": " + e.getMessage());
+                                    LOGGER.log(Level.WARNING, "Error zipping file " + path, e);
                                 }
                             });
                 }
@@ -456,7 +456,7 @@ public class OfficeHelper {
      * <p>This method is typically used to clean up temporary extraction folders after document processing.
      * It walks the file tree in reverse order (files first, then directories) to ensure successful deletion.
      *
-     * <p>Any deletion failures (e.g. due to file locks) are logged to {@code System.err}, but do not halt execution.
+     * <p>Any deletion failures (e.g. due to file locks) are logged but do not halt execution.
      *
      * @param dirPath the root directory to delete
      */
@@ -471,12 +471,12 @@ public class OfficeHelper {
                             try {
                                 Files.delete(p);
                             } catch (IOException e) {
-                                System.err.println("⚠️ Failed to delete " + p + ": " + e.getMessage());
+                                LOGGER.log(Level.WARNING, "Failed to delete " + p, e);
                             }
                         });
             }
         } catch (IOException e) {
-            System.err.println("Error walking directory for cleanup at " + dirPath + ": " + e.getMessage());
+            LOGGER.log(Level.WARNING, "Error walking directory for cleanup at " + dirPath, e);
         }
     }
 }
