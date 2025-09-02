@@ -1,0 +1,105 @@
+# filename: .github/workflows/compile-natives.yml
+name: Compile OpenccJNI Natives
+
+on:
+  # Manual trigger from GitHub UI
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Linux / macOS build in bash; Windows is handled separately below.
+      - name: Build wrapper (Linux/macOS)
+        if: ${{ runner.os != 'Windows' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${{ runner.os }}" in
+            Linux)
+              JOS=linux
+              OUT=libOpenccWrapper.so
+              LIB_CAPI=libopencc_fmmseg_capi.so
+              RPATH="-Wl,-rpath,'\$ORIGIN'"
+              ;;
+            macOS)
+              JOS=darwin
+              OUT=libOpenccWrapper.dylib
+              LIB_CAPI=libopencc_fmmseg_capi.dylib
+              RPATH="-Wl,-rpath,@loader_path -Wl,-install_name,@rpath/${OUT}"
+              ;;
+            *)
+              echo "Unsupported OS for this step"; exit 1;;
+          esac
+
+          echo "Building on ${{ runner.os }} -> output: ${OUT}"
+
+          # Enter the folder that contains OpenccWrapper.cpp as per your notes
+          cd openccjni/src/main/java/openccjni
+
+          # Compile the JNI wrapper and link to opencc_fmmseg_capi
+          g++ -shared -fPIC -O2 -std=c++17 \
+            -I . \
+            -I "$JAVA_HOME/include" \
+            -I "$JAVA_HOME/include/${JOS}" \
+            -L . -lopencc_fmmseg_capi \
+            ${RPATH} \
+            -o "${OUT}" OpenccWrapper.cpp
+
+          echo "Wrapper built: $(pwd)/${OUT}"
+
+          # Collect artifacts (wrapper + C API runtime) and zip
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/${{ runner.os }}"
+          cp -f "${OUT}" "${GITHUB_WORKSPACE}/artifacts/${{ runner.os }}/" || true
+
+          # Try to locate the C API runtime from nearby paths
+          # 1) current dir, 2) project tree search (first match), 3) warn if missing
+          if [ -f "${LIB_CAPI}" ]; then
+            cp -f "${LIB_CAPI}" "${GITHUB_WORKSPACE}/artifacts/${{ runner.os }}/"
+          else
+            FOUND="$(git ls-files | grep -E "/${LIB_CAPI}$" | head -n1 || true)"
+            if [ -n "${FOUND}" ] && [ -f "${FOUND}" ]; then
+              cp -f "${FOUND}" "${GITHUB_WORKSPACE}/artifacts/${{ runner.os }}/"
+            else
+              echo "WARNING: ${LIB_CAPI} not found in repository. Ensure the C API runtime is present."
+            fi
+          fi
+
+          cd "${GITHUB_WORKSPACE}/artifacts/${{ runner.os }}"
+          ZIP_NAME="OpenccJNI-natives-${{ runner.os }}.zip"
+          # zip just the two files if present
+          zip -9 "${ZIP_NAME}" ./* || true
+          echo "Created zip: $(pwd)/${ZIP_NAME}"
+
+      - name: Upload artifact (Linux/macOS)
+        if: ${{ runner.os != 'Windows' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenccJNI-natives-${{ runner.os }}
+          path: artifacts/${{ runner.os }}/*.zip
+          if-no-files-found: warn
+
+      # Windows leg: keep matrix, but skip build here (your script can be added later)
+      - name: Windows note
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          Write-Host "Windows leg is present in matrix but build is skipped in this workflow."
+          Write-Host "Add a PowerShell build step using MinGW/MSYS2 and upload its artifacts when ready."
