@@ -45,7 +45,7 @@ public final class OpenCC {
             System.loadLibrary("OpenccWrapper");
         } catch (UnsatisfiedLinkError e) {
             // Log and fallback to resources packaged in the JAR
-            System.err.println("Failed to load 'OpenccWrapper' via System.loadLibrary: " + e);
+//            System.err.println("File system 'OpenccWrapper' not found, use built-in resources: " + e);
             NativeLibLoader.loadChain(
                     "opencc_fmmseg_capi",
                     "OpenccWrapper"

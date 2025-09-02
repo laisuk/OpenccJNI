@@ -132,7 +132,7 @@ public final class NativeLibLoader {
                     System.load(p.extractedPath.toAbsolutePath().toString());
                 } catch (Throwable t) {
                     LOADED.remove(key); // rollback the optimistic mark
-                    System.err.println("Failed to load native '" + p.base + "' from " + p.extractedPath + ": " + t);
+//                    System.err.println("Failed to load native '" + p.base + "' from " + p.extractedPath + ": " + t);
                     throw t;
                 }
             }
@@ -146,7 +146,7 @@ public final class NativeLibLoader {
             System.loadLibrary(baseName);
             return true;
         } catch (UnsatisfiedLinkError e) {
-            System.err.println("System.loadLibrary(\"" + baseName + "\") failed: " + e);
+//            System.err.println("System.loadLibrary(\"" + baseName + "\") failed: " + e);
             return false;
         }
     }
