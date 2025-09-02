@@ -285,6 +285,7 @@ OpenCC.getSupportedConfigs() -> List<String>
 
 // Last error message
 OpenCC.getLastError() -> String
+OpenCC.setLastError(String err)
 
 ```
 
@@ -303,9 +304,6 @@ cc.convert(String input, boolean punctuation)
 cc.getConfig() -> String
 cc.setConfig(String config)
 
-// Error handling
-cc.getLastError() -> String
-cc.setLastError(String err)
 
 ```
 
