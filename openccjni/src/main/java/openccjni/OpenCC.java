@@ -107,6 +107,10 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public static String convert(String input, String config) {
+        if (input == null) {
+            setLastError("Input is null");
+            return null;
+        }
         if (!CONFIG_SET.contains(config)) {
             setLastError("Invalid config: " + config);
             return input;
@@ -127,6 +131,10 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public static String convert(String input, String config, boolean punctuation) {
+        if (input == null) {
+            setLastError("Input is null");
+            return null;
+        }
         if (!CONFIG_SET.contains(config)) {
             setLastError("Invalid config: " + config);
             return input;
@@ -197,6 +205,10 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public String convert(String input) {
+        if (input == null) {
+            setLastError("Input is null");
+            return null;
+        }
         // Clear any previous Java-side error before invoking the native layer
         setLastError(null);
         return WRAPPER.get().convert(input, this.config, false);
@@ -212,6 +224,10 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public String convert(String input, boolean punctuation) {
+        if (input == null) {
+            setLastError("Input is null");
+            return null;
+        }
         // Clear any previous Java-side error before invoking the native layer
         setLastError(null);
         return WRAPPER.get().convert(input, this.config, punctuation);
@@ -253,15 +269,15 @@ public final class OpenCC {
     }
 
     /**
-     * Returns the last error message (native error has priority; otherwise the Java-side error).
+     * Returns the last error message (Java-side error has priority; otherwise the native error).
      *
      * @return error message, or empty string if none
      */
     public static String getLastError() {
-        String nativeErr = WRAPPER.get().getLastError();
-        if (nativeErr != null && !nativeErr.isEmpty()) return nativeErr;
         String err = LAST_ERROR.get();
-        return err != null ? err : "";
+        if (err != null && !err.isEmpty()) return err;
+        String nativeErr = WRAPPER.get().getLastError();
+        return nativeErr != null ? nativeErr : "";
     }
 
     /**

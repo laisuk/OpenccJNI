@@ -51,6 +51,28 @@ public class OpenCCTests {
     }
 
     @Test
+    void testNullInputStaticConvert() {
+        OpenCC.setLastError(null);
+        assertNull(OpenCC.convert(null, "s2t"));
+        assertEquals("Input is null", OpenCC.getLastError());
+
+        OpenCC.setLastError(null);
+        assertNull(OpenCC.convert(null, "s2t", true));
+        assertEquals("Input is null", OpenCC.getLastError());
+    }
+
+    @Test
+    void testNullInputInstanceConvert() {
+        OpenCC.setLastError(null);
+        assertNull(opencc1.convert(null));
+        assertEquals("Input is null", OpenCC.getLastError());
+
+        OpenCC.setLastError(null);
+        assertNull(opencc1.convert(null, true));
+        assertEquals("Input is null", OpenCC.getLastError());
+    }
+
+    @Test
     void testZhoCheckTraditional() {
         String text = "繁體中文";
         int result = OpenCC.zhoCheck(text);
