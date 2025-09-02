@@ -101,7 +101,7 @@ public class OpenCCTests {
         OpenCC bad = new OpenCC("invalid_config");
         assertEquals("s2t", bad.getConfig());
         assertEquals("測試", bad.convert("测试"));
-        assertNotNull(bad.getLastError());
-        System.out.println("Last Error: " + bad.getLastError());
+        assertNotNull(OpenCC.getLastError());
+        System.out.println("Last Error: " + OpenCC.getLastError());
     }
 }

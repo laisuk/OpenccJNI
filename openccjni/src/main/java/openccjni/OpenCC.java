@@ -74,7 +74,7 @@ public final class OpenCC {
     /**
      * Last error message encountered by OpenCC operations.
      */
-    private static String lastError;
+    private static final ThreadLocal<String> LAST_ERROR = new ThreadLocal<>();
 
     // ---------- Static helpers ----------
 
@@ -102,7 +102,7 @@ public final class OpenCC {
      */
     public static String convert(String input, String config) {
         if (!CONFIG_SET.contains(config)) {
-            lastError = "Invalid config: " + config;
+            setLastError("Invalid config: " + config);
             return input;
         }
         return WRAPPER.get().convert(input, config, false);
@@ -120,7 +120,7 @@ public final class OpenCC {
      */
     public static String convert(String input, String config, boolean punctuation) {
         if (!CONFIG_SET.contains(config)) {
-            lastError = "Invalid config: " + config;
+            setLastError("Invalid config: " + config);
             return input;
         }
         return WRAPPER.get().convert(input, config, punctuation);
@@ -240,10 +240,11 @@ public final class OpenCC {
      *
      * @return error message, or empty string if none
      */
-    public String getLastError() {
+    public static String getLastError() {
         String nativeErr = WRAPPER.get().getLastError();
         if (nativeErr != null && !nativeErr.isEmpty()) return nativeErr;
-        return lastError != null ? lastError : "";
+        String err = LAST_ERROR.get();
+        return err != null ? err : "";
     }
 
     /**
@@ -253,7 +254,7 @@ public final class OpenCC {
      * @param lastError the error message to record (maybe {@code null})
      * @since 1.0.0
      */
-    public void setLastError(String lastError) {
-        OpenCC.lastError = lastError;
+    public static void setLastError(String lastError) {
+        LAST_ERROR.set(lastError);
     }
 }
