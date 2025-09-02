@@ -109,6 +109,7 @@ public final class NativeLibLoader {
                     // optional: skip if missing/unavailable
                     continue;
                 }
+                System.err.println("Failed to extract native '" + p.base + "': " + e);
                 throw new UnsatisfiedLinkError("Failed to extract native '" + p.base + "': " + e);
             }
         }
@@ -131,6 +132,7 @@ public final class NativeLibLoader {
                     System.load(p.extractedPath.toAbsolutePath().toString());
                 } catch (Throwable t) {
                     LOADED.remove(key); // rollback the optimistic mark
+                    System.err.println("Failed to load native '" + p.base + "' from " + p.extractedPath + ": " + t);
                     throw t;
                 }
             }
@@ -144,6 +146,7 @@ public final class NativeLibLoader {
             System.loadLibrary(baseName);
             return true;
         } catch (UnsatisfiedLinkError e) {
+            System.err.println("System.loadLibrary(\"" + baseName + "\") failed: " + e);
             return false;
         }
     }

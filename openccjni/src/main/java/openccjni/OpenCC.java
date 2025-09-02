@@ -44,7 +44,8 @@ public final class OpenCC {
             // 1) Try normal search path (PATH, java.library.path, working dir, etc.)
             System.loadLibrary("OpenccWrapper");
         } catch (UnsatisfiedLinkError e) {
-            // 2) Fallback: extract from JAR resources and load dependencies in order
+            // Log and fallback to resources packaged in the JAR
+            System.err.println("Failed to load 'OpenccWrapper' via System.loadLibrary: " + e);
             NativeLibLoader.loadChain(
                     "opencc_fmmseg_capi",
                     "OpenccWrapper"
