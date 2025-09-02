@@ -61,10 +61,15 @@ public final class OpenCC {
     /**
      * Supported OpenCC configuration names (conversion profiles).
      */
-    private static final Set<String> CONFIG_SET = new HashSet<>(Arrays.asList(
+    private static final List<String> SUPPORTED_CONFIGS = Collections.unmodifiableList(Arrays.asList(
             "s2t", "t2s", "s2tw", "tw2s", "s2twp", "tw2sp", "s2hk", "hk2s",
             "t2tw", "tw2t", "t2twp", "tw2tp", "t2hk", "hk2t", "t2jp", "jp2t"
     ));
+
+    /**
+     * Supported OpenCC configurations as a set for quick lookup.
+     */
+    private static final Set<String> CONFIG_SET = Collections.unmodifiableSet(new HashSet<>(SUPPORTED_CONFIGS));
 
     /**
      * Default configuration if none is specified.
@@ -229,10 +234,7 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public static List<String> getSupportedConfigs() {
-        return Collections.unmodifiableList(Arrays.asList(
-                "s2t", "t2s", "s2tw", "tw2s", "s2twp", "tw2sp", "s2hk", "hk2s",
-                "t2tw", "tw2t", "t2twp", "tw2tp", "t2hk", "hk2t", "t2jp", "jp2t"
-        ));
+        return SUPPORTED_CONFIGS;
     }
 
     /**
