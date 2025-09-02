@@ -110,6 +110,8 @@ public final class OpenCC {
             setLastError("Invalid config: " + config);
             return input;
         }
+        // Clear any previous Java-side error before invoking the native layer
+        setLastError(null);
         return WRAPPER.get().convert(input, config, false);
     }
 
@@ -128,6 +130,8 @@ public final class OpenCC {
             setLastError("Invalid config: " + config);
             return input;
         }
+        // Clear any previous Java-side error before invoking the native layer
+        setLastError(null);
         return WRAPPER.get().convert(input, config, punctuation);
     }
 
@@ -143,7 +147,13 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public static int zhoCheck(String text) {
-        if (text == null || text.isEmpty()) return 0;
+        if (text == null || text.isEmpty()) {
+            // No operation performed, clear previous error
+            setLastError(null);
+            return 0;
+        }
+        // Clear any previous Java-side error before invoking the native layer
+        setLastError(null);
         return WRAPPER.get().zhoCheck(text);
     }
 
@@ -186,6 +196,8 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public String convert(String input) {
+        // Clear any previous Java-side error before invoking the native layer
+        setLastError(null);
         return WRAPPER.get().convert(input, this.config, false);
     }
 
@@ -199,6 +211,8 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public String convert(String input, boolean punctuation) {
+        // Clear any previous Java-side error before invoking the native layer
+        setLastError(null);
         return WRAPPER.get().convert(input, this.config, punctuation);
     }
 
