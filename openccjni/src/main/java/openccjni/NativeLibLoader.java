@@ -48,6 +48,7 @@ public final class NativeLibLoader {
      *                 mapped via {@link System#mapLibraryName(String)} for the actual file
      * @throws UnsatisfiedLinkError if the library cannot be found or loaded
      */
+    @SuppressWarnings("unused")
     public static void loadOrExtract(String baseName) {
         final String key = normalizeKey(baseName);
         if (LOADED.putIfAbsent(key, Boolean.TRUE) != null) return; // already loaded
@@ -179,28 +180,28 @@ public final class NativeLibLoader {
      * Extract a resource-mapped library to the given directory.
      * Returns null if optional and resource is missing.
      */
+    @SuppressWarnings("ResultOfMethodCallIgnored")
     private static Path extractToDir(String baseName, Path dir, boolean optional) throws IOException {
-        final String mapped = System.mapLibraryName(baseName); // e.g. libOpenccWrapper.so / .dylib / .dll
+        final String mapped = System.mapLibraryName(baseName); // e.g. libOpenccWrapper.so / .dylib / OpenccWrapper.dll
         final String os = detectOs();
         final String arch = detectArch();
 
-        // Build candidate resource paths (prefer macos-arm64, fallback macos-aarch64)
-        final List<String> candidates = getNativeStrings(os, arch, mapped);
+        // Build candidate resource paths (handles macOS arm64/aarch64 preferences internally)
+        final List<String> candidates = new ArrayList<>(getNativeStrings(os, arch, mapped));
 
+        // If (and only if) your Windows resources use a *non-mapped* file name, add that variant.
+        if ("windows".equals(os)) {
+            String rawDll = baseName + ".dll";
+            if (!rawDll.equals(mapped)) {
+                candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, rawDll));
+            }
+        }
+
+        // Try each candidate exactly once
         URL url = null;
         for (String res : candidates) {
             url = NativeLibLoader.class.getResource(res);
             if (url != null) break;
-        }
-
-        // Windows: also try raw "<base>.dll" filename variant (keeps your original behavior)
-        if (url == null && "windows".equals(os)) {
-            final List<String> winCandidates = new ArrayList<>();
-            winCandidates.add(String.format("/openccjni/natives/%s-%s/%s.dll", os, arch, baseName));
-            for (String res : winCandidates) {
-                url = NativeLibLoader.class.getResource(res);
-                if (url != null) break;
-            }
         }
 
         if (url == null) {
@@ -210,19 +211,33 @@ public final class NativeLibLoader {
 
         Files.createDirectories(dir);
         final Path out = dir.resolve(mapped);
-        try (InputStream in = url.openStream();
-             OutputStream o = Files.newOutputStream(out, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            byte[] buf = new byte[16 * 1024];
-            int r;
-            while ((r = in.read(buf)) != -1) o.write(buf, 0, r);
+
+        try (InputStream in = url.openStream()) {
+            Files.copy(in, out, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
 
-        // Generous perms on Unix
+        // Make executable on Unix-y systems; ignore if not supported
         try {
-            boolean readable = out.toFile().setReadable(true, false);
-            boolean writable = out.toFile().setWritable(true, false);
-            boolean executable = out.toFile().setExecutable(true, false);
-        } catch (SecurityException ignored) {
+            // Prefer POSIX if available
+            Set<java.nio.file.attribute.PosixFilePermission> perms =
+                    EnumSet.of(
+                            java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                            java.nio.file.attribute.PosixFilePermission.OWNER_WRITE,
+                            java.nio.file.attribute.PosixFilePermission.OWNER_EXECUTE,
+                            java.nio.file.attribute.PosixFilePermission.GROUP_READ,
+                            java.nio.file.attribute.PosixFilePermission.GROUP_EXECUTE,
+                            java.nio.file.attribute.PosixFilePermission.OTHERS_READ,
+                            java.nio.file.attribute.PosixFilePermission.OTHERS_EXECUTE
+                    );
+            Files.setPosixFilePermissions(out, perms);
+        } catch (UnsupportedOperationException | SecurityException ignore) {
+            // Fallback for non-POSIX (e.g., Windows) or restricted FS
+            try {
+                File f = out.toFile();
+                f.setReadable(true, false);
+                f.setWritable(true, false);
+                f.setExecutable(true, false);
+            } catch (SecurityException ignore2) { /* best-effort */ }
         }
 
         out.toFile().deleteOnExit();
