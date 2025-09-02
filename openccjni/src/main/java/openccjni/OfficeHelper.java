@@ -507,18 +507,16 @@ public class OfficeHelper {
         if (dirPath == null || !Files.exists(dirPath)) return;
 
         try {
-            if (Files.exists(dirPath)) { // Redundant but ensures safety under race conditions
-                try (Stream<Path> paths = Files.walk(dirPath)) {
-                    paths
-                            .sorted(Comparator.reverseOrder()) // Delete children before parents
-                            .forEach(p -> {
-                                try {
-                                    Files.delete(p);
-                                } catch (IOException e) {
-                                    System.err.println("⚠️ Failed to delete " + p + ": " + e.getMessage());
-                                }
-                            });
-                }
+            try (Stream<Path> paths = Files.walk(dirPath)) {
+                paths
+                        .sorted(Comparator.reverseOrder()) // Delete children before parents
+                        .forEach(p -> {
+                            try {
+                                Files.delete(p);
+                            } catch (IOException e) {
+                                System.err.println("⚠️ Failed to delete " + p + ": " + e.getMessage());
+                            }
+                        });
             }
         } catch (IOException e) {
             System.err.println("Error walking directory for cleanup at " + dirPath + ": " + e.getMessage());
