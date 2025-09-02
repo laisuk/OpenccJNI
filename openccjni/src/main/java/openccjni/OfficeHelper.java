@@ -131,7 +131,7 @@ public class OfficeHelper {
 //                String xml = Files.readString(fullPath);
                 // Java 8: no Files.readString, use readAllBytes
                 byte[] bytes = Files.readAllBytes(fullPath);
-                String xml = new String(bytes);
+                String xml = new String(bytes, StandardCharsets.UTF_8);
                 Map<String, String> fontMap = new HashMap<>();
 
                 if (keepFont) {
