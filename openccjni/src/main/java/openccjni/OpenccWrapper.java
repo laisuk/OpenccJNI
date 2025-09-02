@@ -2,7 +2,10 @@ package openccjni;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -90,6 +93,19 @@ public class OpenccWrapper implements AutoCloseable {
             "t2tw", "t2twp", "t2hk", "tw2t", "tw2tp", "hk2t", "t2jp", "jp2t"
     );
 
+    /**
+     * Precomputed UTF-8 bytes for each supported config.
+     */
+    private static final Map<String, byte[]> CONFIG_BYTES;
+
+    static {
+        Map<String, byte[]> map = new HashMap<>();
+        for (String cfg : configList) {
+            map.put(cfg, cfg.getBytes(StandardCharsets.UTF_8));
+        }
+        CONFIG_BYTES = Collections.unmodifiableMap(map);
+    }
+
     // ------------------------------------------------------------------------
     // Constructors
     // ------------------------------------------------------------------------
@@ -124,10 +140,12 @@ public class OpenccWrapper implements AutoCloseable {
         Objects.requireNonNull(config, "config cannot be null");
 
         if (input.isEmpty()) return "";
-        if (!configList.contains(config)) config = "s2t";
 
         byte[] inputBytes = input.getBytes(StandardCharsets.UTF_8);
-        byte[] configBytes = config.getBytes(StandardCharsets.UTF_8);
+        byte[] configBytes = CONFIG_BYTES.get(config);
+        if (configBytes == null) {
+            configBytes = CONFIG_BYTES.get("s2t");
+        }
         byte[] rawOutput = opencc_convert(instance, inputBytes, configBytes, punctuation);
 
         if (rawOutput == null) {
