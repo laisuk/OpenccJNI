@@ -118,7 +118,23 @@ public class OpenccWrapper implements AutoCloseable {
     public OpenccWrapper() {
         instance = opencc_new();
         if (instance == 0) {
-            throw new RuntimeException("Failed to create OpenCC instance: " + getLastError());
+            String err = opencc_last_error();
+            throw new RuntimeException("Failed to create OpenCC instance: " + (err != null ? err : ""));
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // Private methods
+    // ------------------------------------------------------------------------
+
+    /**
+     * Ensures that the native instance is still open.
+     *
+     * @throws IllegalStateException if the underlying native instance has been closed
+     */
+    private void ensureOpen() {
+        if (instance == 0) {
+            throw new IllegalStateException("OpenCC instance is closed");
         }
     }
 
@@ -136,6 +152,7 @@ public class OpenccWrapper implements AutoCloseable {
      * @throws RuntimeException if conversion fails
      */
     public String convert(String input, String config, boolean punctuation) {
+        ensureOpen();
         Objects.requireNonNull(input, "input cannot be null");
         Objects.requireNonNull(config, "config cannot be null");
 
@@ -161,6 +178,7 @@ public class OpenccWrapper implements AutoCloseable {
      * @return {@code true} if parallel mode is enabled, {@code false} otherwise
      */
     public boolean isParallel() {
+        ensureOpen();
         return opencc_get_parallel(instance);
     }
 
@@ -170,6 +188,7 @@ public class OpenccWrapper implements AutoCloseable {
      * @param isParallel {@code true} to enable parallel mode, {@code false} to disable
      */
     public void setParallel(boolean isParallel) {
+        ensureOpen();
         opencc_set_parallel(instance, isParallel);
     }
 
@@ -180,6 +199,7 @@ public class OpenccWrapper implements AutoCloseable {
      * @return non-zero if Chinese characters are detected, 0 otherwise
      */
     public int zhoCheck(String input) {
+        ensureOpen();
         if (input == null) {
             throw new IllegalArgumentException("input cannot be null");
         }
@@ -193,6 +213,7 @@ public class OpenccWrapper implements AutoCloseable {
      * @return error message, or empty string if none
      */
     public String getLastError() {
+        ensureOpen();
         final String lastError = opencc_last_error(); // native
         return lastError != null ? lastError : "";
     }
