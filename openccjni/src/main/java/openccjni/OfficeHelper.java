@@ -15,6 +15,8 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import java.util.stream.Collectors;
+import java.util.function.Predicate;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -345,14 +347,32 @@ public class OfficeHelper {
                 return Collections.singletonList(Paths.get("xl/sharedStrings.xml"));
 
             case "pptx": {
-                List<Path> results = new ArrayList<>();
-                File pptDir = baseDir.resolve("ppt").toFile();
-
-                if (pptDir.isDirectory()) {
-                    collectPptxTargets(pptDir, baseDir.toFile(), results);
+                Path pptDir = baseDir.resolve("ppt");
+                if (!Files.isDirectory(pptDir)) {
+                    return Collections.emptyList();
                 }
 
-                return results;
+                Predicate<Path> isTarget = p -> {
+                    String name = p.getFileName().toString();
+                    return name.endsWith(".xml") && (
+                            name.startsWith("slide") ||
+                            name.contains("notesSlide") ||
+                            name.contains("slideMaster") ||
+                            name.contains("slideLayout") ||
+                            name.contains("comment")
+                    );
+                };
+
+                try (Stream<Path> stream = Files.walk(pptDir)) {
+                    return stream
+                            .filter(Files::isRegularFile)
+                            .filter(isTarget)
+                            .map(baseDir::relativize)
+                            .collect(Collectors.toList());
+                } catch (IOException e) {
+                    LOGGER.log(Level.WARNING, "Failed to collect pptx targets", e);
+                    return Collections.emptyList();
+                }
             }
 
             case "odt":
@@ -361,91 +381,28 @@ public class OfficeHelper {
                 return Collections.singletonList(Paths.get("content.xml"));
 
             case "epub": {
-                List<Path> epubTargets = new ArrayList<>();
-                File root = baseDir.toFile();
+                Predicate<Path> isTarget = p -> {
+                    String name = p.getFileName().toString().toLowerCase();
+                    return name.endsWith(".xhtml") ||
+                            name.endsWith(".html") ||
+                            name.endsWith(".opf") ||
+                            name.endsWith(".ncx");
+                };
 
-                if (root.isDirectory()) {
-                    collectEpubTargets(root, baseDir.toFile(), epubTargets);
+                try (Stream<Path> stream = Files.walk(baseDir)) {
+                    return stream
+                            .filter(Files::isRegularFile)
+                            .filter(isTarget)
+                            .map(baseDir::relativize)
+                            .collect(Collectors.toList());
+                } catch (IOException e) {
+                    LOGGER.log(Level.WARNING, "Failed to collect epub targets", e);
+                    return Collections.emptyList();
                 }
-
-                return epubTargets;
             }
 
             default:
                 return null;
-        }
-    }
-
-    /**
-     * Recursively collects relevant PowerPoint XML slide fragments from a `.pptx` directory.
-     *
-     * <p>This method targets files typically found under {@code ppt/} such as:
-     * <ul>
-     *   <li>{@code slide*.xml}</li>
-     *   <li>{@code notesSlide*.xml}</li>
-     *   <li>{@code slideMaster*.xml}</li>
-     *   <li>{@code slideLayout*.xml}</li>
-     *   <li>{@code comment*.xml}</li>
-     * </ul>
-     *
-     * <p>All paths returned are relative to {@code baseDir}.
-     *
-     * @param dir     current directory to scan
-     * @param baseDir root of the extracted .pptx archive
-     * @param results list to append matching relative {@link Path}s
-     */
-    private static void collectPptxTargets(File dir, File baseDir, List<Path> results) {
-        File[] files = dir.listFiles();
-        if (files == null) return;
-
-        for (File file : files) {
-            if (file.isDirectory()) {
-                collectPptxTargets(file, baseDir, results);
-            } else {
-                String name = file.getName();
-                if (name.endsWith(".xml") && (
-                        name.startsWith("slide") ||
-                                name.contains("notesSlide") ||
-                                name.contains("slideMaster") ||
-                                name.contains("slideLayout") ||
-                                name.contains("comment")
-                )) {
-                    Path relative = baseDir.toPath().relativize(file.toPath());
-                    results.add(relative);
-                }
-            }
-        }
-    }
-
-    /**
-     * Recursively collects relevant XHTML and metadata files for EPUB conversion.
-     *
-     * <p>This method targets common EPUB content files including:
-     * <ul>
-     *   <li>{@code *.xhtml} - main HTML content</li>
-     *   <li>{@code *.opf}   - package metadata</li>
-     *   <li>{@code *.ncx}   - navigation control files</li>
-     * </ul>
-     *
-     * <p>All paths returned are relative to {@code baseDir}.
-     *
-     * @param current the current directory to walk
-     * @param baseDir the root of the extracted EPUB archive
-     * @param results list to append matching relative {@link Path}s
-     */
-    private static void collectEpubTargets(File current, File baseDir, List<Path> results) {
-        File[] files = current.listFiles();
-        if (files == null) return;
-
-        for (File file : files) {
-            if (file.isDirectory()) {
-                collectEpubTargets(file, baseDir, results);
-            } else {
-                String name = file.getName().toLowerCase();
-                if (name.endsWith(".xhtml") || name.endsWith(".html") || name.endsWith(".opf") || name.endsWith(".ncx")) {
-                    results.add(baseDir.toPath().relativize(file.toPath()));
-                }
-            }
         }
     }
 
