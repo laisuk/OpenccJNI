@@ -49,9 +49,10 @@ tasks.withType<Javadoc> {
 }
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+//    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+    // ✅ pin explicit versions:
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.3")
 }
 
 tasks.test {
