@@ -3,6 +3,7 @@ package openccjni;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Low-level JNI wrapper around the native OpenCC + FMMSEG C API.
@@ -119,6 +120,9 @@ public class OpenccWrapper implements AutoCloseable {
      * @throws RuntimeException if conversion fails
      */
     public String convert(String input, String config, boolean punctuation) {
+        Objects.requireNonNull(input, "input cannot be null");
+        Objects.requireNonNull(config, "config cannot be null");
+
         if (input.isEmpty()) return "";
         if (!configList.contains(config)) config = "s2t";
 
@@ -160,6 +164,9 @@ public class OpenccWrapper implements AutoCloseable {
      * @return non-zero if Chinese characters are detected, 0 otherwise
      */
     public int zhoCheck(String input) {
+        if (input == null) {
+            throw new IllegalArgumentException("input cannot be null");
+        }
         byte[] inputBytes = input.getBytes(StandardCharsets.UTF_8);
         return opencc_zho_check(instance, inputBytes);
     }
