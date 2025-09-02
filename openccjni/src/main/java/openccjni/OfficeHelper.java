@@ -51,6 +51,29 @@ public class OfficeHelper {
     private static final Logger LOGGER = Logger.getLogger(OfficeHelper.class.getName());
 
     /**
+     * Precompiled regular expression patterns for extracting font declarations
+     * in supported formats. Shared patterns are reused across similar formats.
+     */
+    private static final Map<String, Pattern> FONT_PATTERNS;
+
+    static {
+        Map<String, Pattern> map = new HashMap<>();
+        map.put("docx", Pattern.compile("(w:(?:eastAsia|ascii|hAnsi|cs)=\")(.*?)(\")"));
+        map.put("xlsx", Pattern.compile("(val=\")(.*?)(\")"));
+        map.put("pptx", Pattern.compile("(typeface=\")(.*?)(\")"));
+
+        Pattern odPattern = Pattern.compile("((?:style:font-name(?:-asian|-complex)?|svg:font-family|style:name)=[\"'])([^\"']+)([\"'])");
+        map.put("odt", odPattern);
+        map.put("ods", odPattern);
+        map.put("odp", odPattern);
+
+        map.put("epub", Pattern.compile("(font-family\\s*:\\s*)([^;\"']+)([;\"'])?"));
+
+        FONT_PATTERNS = Collections.unmodifiableMap(map);
+    }
+
+
+    /**
      * Represents the result of an Office document conversion.
      */
     public static class Result {
@@ -356,10 +379,10 @@ public class OfficeHelper {
                     String name = p.getFileName().toString();
                     return name.endsWith(".xml") && (
                             name.startsWith("slide") ||
-                            name.contains("notesSlide") ||
-                            name.contains("slideMaster") ||
-                            name.contains("slideLayout") ||
-                            name.contains("comment")
+                                    name.contains("notesSlide") ||
+                                    name.contains("slideMaster") ||
+                                    name.contains("slideLayout") ||
+                                    name.contains("comment")
                     );
                 };
 
@@ -424,30 +447,7 @@ public class OfficeHelper {
      * @return the format-specific font extraction {@link Pattern}, or {@code null} if unsupported
      */
     private static Pattern getFontPattern(String format) {
-        Pattern pattern;
-        switch (format) {
-            case "docx":
-                pattern = Pattern.compile("(w:(?:eastAsia|ascii|hAnsi|cs)=\")(.*?)(\")");
-                break;
-            case "xlsx":
-                pattern = Pattern.compile("(val=\")(.*?)(\")");
-                break;
-            case "pptx":
-                pattern = Pattern.compile("(typeface=\")(.*?)(\")");
-                break;
-            case "odt":
-            case "ods":
-            case "odp":
-                pattern = Pattern.compile("((?:style:font-name(?:-asian|-complex)?|svg:font-family|style:name)=[\"'])([^\"']+)([\"'])");
-                break;
-            case "epub":
-                pattern = Pattern.compile("(font-family\\s*:\\s*)([^;\"']+)([;\"'])?");
-                break;
-            default:
-                pattern = null;
-                break;
-        }
-        return pattern;
+        return FONT_PATTERNS.get(format);
     }
 
     /**
