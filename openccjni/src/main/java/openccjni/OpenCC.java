@@ -86,6 +86,7 @@ public final class OpenCC {
      * @return a new {@link OpenCC} instance using the provided (or defaulted) config
      * @since 1.0.0
      */
+    @SuppressWarnings("unused")
     public static OpenCC fromConfig(String config) {
         return new OpenCC(config);
     }
