@@ -264,8 +264,8 @@ public final class NativeLibLoader {
     static String detectOs() {
         if (isWindows()) return "windows";
         if (isMac()) return "macos";
-//        if (isLinux()) return "linux";
-        return "linux"; // conservative default
+        if (isLinux()) return "linux";
+        return "unknown"; // unsupported OS
     }
 
     static String detectArch() {
