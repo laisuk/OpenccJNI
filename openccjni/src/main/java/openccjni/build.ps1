@@ -1,3 +1,5 @@
+# Usage: .\build.ps1 -StaticRuntime
+
 param(
   [string]$JavaHome = $env:JAVA_HOME,
   [string]$Out = "OpenccWrapper.dll",
