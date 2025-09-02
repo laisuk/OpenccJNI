@@ -40,7 +40,7 @@ tasks.named<Jar>("sourcesJar") {
         "**/natives/**",
         "**/*.so", "**/*.dll", "**/*.dylib",
         "**/*.h", "**/*.hpp", "**/*.cpp", "**/*.c",
-        "**/*.txt", "**/*.bin"
+        "**/*.txt", "**/*.bin", "**/*.ps1"
     )
 }
 
