@@ -34,7 +34,7 @@ conversion. It ships with a Java API and loads a native library at runtime.
 
 ```kotlin
 dependencies {
-    implementation("io.github.laisuk:openccjni:1.0.0")
+    implementation("io.github.laisuk:openccjni:1.0.1")
 }
 ```
 
@@ -45,7 +45,7 @@ dependencies {
 <dependency>
     <groupId>io.github.laisuk</groupId>
     <artifactId>openccjni</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
