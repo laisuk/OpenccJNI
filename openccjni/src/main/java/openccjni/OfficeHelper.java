@@ -72,7 +72,6 @@ public class OfficeHelper {
         FONT_PATTERNS = Collections.unmodifiableMap(map);
     }
 
-
     /**
      * Represents the result of an Office document conversion.
      */
@@ -178,6 +177,7 @@ public class OfficeHelper {
 
                 if (keepFont) {
                     for (Map.Entry<String, String> entry : fontMap.entrySet()) {
+                        assert converted != null;
                         converted = converted.replace(entry.getKey(), entry.getValue());
                     }
                 }
@@ -185,6 +185,7 @@ public class OfficeHelper {
                 // Files.writeString(fullPath, converted);
                 // Java 8: no Files.writeString, use Files.write
                 // ✅ portable: always UTF-8
+                assert converted != null;
                 Files.write(fullPath, converted.getBytes(StandardCharsets.UTF_8));
                 convertedCount++;
             }
