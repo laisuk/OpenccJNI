@@ -102,7 +102,7 @@ publishing {
 
             pom {
                 name.set("OpenccJNI")
-                description.set("Java JNI wrapper for Rust-based C API opencc-fmmseg")
+                description.set("JNI wrapper for Rust-based opencc-fmmseg Chinese text conversion")
                 url.set("https://github.com/laisuk/OpenccJNI")
                 licenses {
                     license {
