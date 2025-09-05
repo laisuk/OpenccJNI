@@ -52,7 +52,28 @@ public class OfficeHelper {
 
     /**
      * Precompiled regular expression patterns for extracting font declarations
-     * in supported formats. Shared patterns are reused across similar formats.
+     * across supported document formats.
+     *
+     * <p>Each pattern provides three capturing groups:
+     * <ol>
+     *   <li>Prefix (e.g., attribute or CSS property start)</li>
+     *   <li>The actual font value</li>
+     *   <li>Suffix (e.g., closing quote, semicolon, or delimiter)</li>
+     * </ol>
+     *
+     * <p>Supported formats and their corresponding attributes:
+     * <ul>
+     *   <li><b>docx</b>: {@code w:eastAsia}, {@code w:ascii}, {@code w:hAnsi}, {@code w:cs}</li>
+     *   <li><b>xlsx</b>: {@code val}</li>
+     *   <li><b>pptx</b>: {@code typeface}</li>
+     *   <li><b>odt/ods/odp</b>: {@code style:font-name}, {@code style:font-name-asian},
+     *       {@code style:font-name-complex}, {@code svg:font-family}, {@code style:name}</li>
+     *   <li><b>epub</b>: CSS {@code font-family}</li>
+     * </ul>
+     *
+     * <p>These patterns are used when {@code --keep-font} is enabled to temporarily
+     * replace font declarations with markers during OpenCC text conversion,
+     * and then restore them afterward.
      */
     private static final Map<String, Pattern> FONT_PATTERNS;
 
@@ -433,20 +454,13 @@ public class OfficeHelper {
     }
 
     /**
-     * Returns a regular expression {@link Pattern} for extracting font declarations in the specified document format.
+     * Returns a regular expression {@link Pattern} for extracting font declarations
+     * in the specified document format.
      *
-     * <p>This is used when {@code --keep-font} is enabled, allowing the font declarations
-     * (e.g., {@code font-family}, {@code w:eastAsia}, {@code style:font-name}) to be temporarily replaced with markers
-     * during OpenCC text conversion and then restored afterward.
+     * <p>See {@link #FONT_PATTERNS} for the supported formats and attributes.</p>
      *
-     * <p>The returned pattern uses 3 capturing groups:
-     * <ol>
-     *   <li>Prefix (e.g., attribute start)</li>
-     *   <li>The actual font value</li>
-     *   <li>Suffix (e.g., closing quote or semicolon)</li>
-     * </ol>
-     *
-     * @param format the document format (e.g., {@code docx}, {@code odt}, {@code epub})
+     * @param format the document format key (e.g., {@code docx}, {@code xlsx}, {@code pptx},
+     *               {@code odt}, {@code ods}, {@code odp}, {@code epub})
      * @return the format-specific font extraction {@link Pattern}, or {@code null} if unsupported
      */
     private static Pattern getFontPattern(String format) {
