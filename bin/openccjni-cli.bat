@@ -14,4 +14,4 @@ echo Error: No JAR found in openccjni-cli\build\libs
 exit /b 1
 
 :found
-"%JRE%" -cp "%JAR%;%LIB%" openccjnicli.Main %*
+"%JRE%" --enable-native-access=ALL-UNNAMED -cp "%JAR%;%LIB%" openccjnicli.Main %*
