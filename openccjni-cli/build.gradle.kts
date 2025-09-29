@@ -22,6 +22,11 @@ dependencies {
 // Application entrypoint (used by `run`, Jar manifest, etc.)
 application {
     mainClass.set("openccjnicli.Main")
+    applicationDefaultJvmArgs = listOf(
+        "-Dfile.encoding=UTF-8",
+        "-XX:+IgnoreUnrecognizedVMOptions",
+        "--enable-native-access=ALL-UNNAMED"
+    )
 }
 
 // Make sure the CLI JAR is runnable (even though we ship a native exe as well)

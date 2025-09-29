@@ -52,8 +52,8 @@ g++ -shared -o libZhoWrapper.so ZhoWrapper.cpp \
 
 g++ -shared -o libOpenccWrapper.so OpenccWrapper.cpp \
   -I . \
-  -I "/home/bryan/.jdks/graalvm-jdk-21.0.6/include" \
-  -I "/home/bryan/.jdks/graalvm-jdk-21.0.6/include/linux" \
+  -I "/home/bryan/.jdks/graalvm-jdk-21.0.8/include" \
+  -I "/home/bryan/.jdks/graalvm-jdk-21.0.8/include/linux" \
   -L . -lopencc_fmmseg_capi \
   -Wl,-rpath,'$ORIGIN'
 
