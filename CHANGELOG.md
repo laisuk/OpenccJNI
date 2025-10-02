@@ -8,6 +8,10 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### [1.0.2-beta1]
 
+### Changed
+
+- Update natives to `opencc-fmmseg` 0.8.2
+
 ### CLI
 
 - **Java 25 compatibility**: start scripts now pass  
@@ -21,7 +25,7 @@ java --enable-native-access=ALL-UNNAMED -jar openccjava-cli-1.0.3.jar convert -c
 
 ## [1.0.0] - 2025-08-31
 
-## 📝 Changelog
+### 📝 Changelog
 
 - Initial stable release.
 - Published to Maven Central.
