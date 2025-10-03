@@ -166,6 +166,40 @@ public final class OpenCC {
         return WRAPPER.get().zhoCheck(text);
     }
 
+    /**
+     * Checks whether global parallel conversion mode is currently enabled.
+     *
+     * <p>This flag is shared across all {@code OpenCC} instances in the JVM.
+     * When enabled, conversion operations may use multiple threads to process
+     * large texts or documents, improving performance on multicore systems.</p>
+     *
+     * @return {@code true} if parallel mode is enabled globally;
+     *         {@code false} otherwise
+     * @since 1.0.2
+     */
+    public static boolean isParallel() {
+        return WRAPPER.get().isParallel();
+    }
+
+    /**
+     * Enables or disables the global parallel conversion mode.
+     *
+     * <p>This setting applies to all {@code OpenCC} instances in the JVM.
+     * Mixing parallel and non-parallel modes across instances is not supported
+     * and may lead to unstable behavior.</p>
+     *
+     * <p>When set to {@code true}, conversion operations may be executed in
+     * parallel across multiple threads. For smaller inputs, parallel mode
+     * may introduce overhead and is not always beneficial.</p>
+     *
+     * @param isParallel {@code true} to enable parallel processing globally,
+     *                   {@code false} to disable it
+     * @since 1.0.2
+     */
+    public static void setParallel(boolean isParallel) {
+        WRAPPER.get().setParallel(isParallel);
+    }
+
     // ---------- Instance API ----------
 
     /**

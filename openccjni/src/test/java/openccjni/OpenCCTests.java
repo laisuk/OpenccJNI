@@ -27,6 +27,7 @@ public class OpenCCTests {
         String result = opencc1.convert(simplified);
 
         assertEquals(expectedTraditional, result);
+        assertNotNull(result);
         assertTrue(result.contains("簡"), "Should contain converted character");
     }
 
@@ -37,6 +38,7 @@ public class OpenCCTests {
         String result = OpenCC.convert(simplified, "s2twp");
 
         assertEquals(expectedTraditional, result);
+        assertNotNull(result);
         assertTrue(result.contains("義"), "Should contain converted character");
     }
 
