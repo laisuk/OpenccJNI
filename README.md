@@ -34,7 +34,7 @@ conversion. It ships with a Java API and loads a native library at runtime.
 
 ```kotlin
 dependencies {
-    implementation("io.github.laisuk:openccjni:1.0.1")
+    implementation("io.github.laisuk:openccjni:1.0.2")
 }
 ```
 
@@ -45,7 +45,7 @@ dependencies {
 <dependency>
     <groupId>io.github.laisuk</groupId>
     <artifactId>openccjni</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
 </dependency>
 ```
 
@@ -177,7 +177,8 @@ Default resolution order used by `OpenCC`:
     - **Windows**: MinGW-w64 (posix-seh, e.g., x86_64-14.x). 32-bit builds via `i686` toolchain.
     - **Linux**: GCC/Clang with standard libc.
     - **macOS**: Xcode/Clang.
-- **Native dependency**: `opencc_fmmseg_capi` (build from [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) Rust source or provide binaries on your link path).
+- **Native dependency**: `opencc_fmmseg_capi` (build from [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) Rust
+  source or provide binaries on your link path).
 
 ### Generate JNI header
 
