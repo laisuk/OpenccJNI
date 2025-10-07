@@ -4,6 +4,7 @@
 [![javadoc](https://javadoc.io/badge2/io.github.laisuk/openccjni/javadoc.svg)](https://javadoc.io/doc/io.github.laisuk/openccjni)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-win%20%7C%20linux%20%7C%20macOS-informational)](#-supported-platforms)
+[![](https://jitpack.io/v/laisuk/OpenccJNI.svg)](https://jitpack.io/#laisuk/OpenccJNI)
 
 > High-performance Simplified/Traditional Chinese conversion using OpenCC with FMMSEG longest-match segmentation — from
 > Java, via JNI.
