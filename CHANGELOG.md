@@ -6,7 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.0.2]
+## [1.0.3] - 2025-10-23
+
+### Changed
+
+- Update natives to `opencc-fmmseg` v0.8.3
+
+---
+
+## [1.0.2] - 2025-10-04
 
 ### Added
 
@@ -14,7 +22,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- Update natives to `opencc-fmmseg` 0.8.2
+- Update natives to `opencc-fmmseg` v0.8.2
 
 ### CLI
 
