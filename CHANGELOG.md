@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.0.4] - 2025-11-25
+
+### Changed
+- Refactored `OfficeHelper` to include a core `byte[]`-based `convert()` API for in-memory document processing.
+- Updated conversion result handling: introduced unified abstract `Result` base class with concrete `FileResult` and `MemoryResult` subtypes.
+- Ensured backward compatibility: legacy `Result` return type remains valid and unchanged for existing users.
+
+---
+
 ## [1.0.3] - 2025-10-23
 
 ### Changed
