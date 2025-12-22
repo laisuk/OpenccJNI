@@ -66,11 +66,11 @@ public class OpenCCTests {
     @Test
     void testNullInputInstanceConvert() {
         OpenCC.setLastError(null);
-        assertNull(opencc1.convert(null));
+        assertEquals("", opencc1.convert(null));
         assertEquals("Input is null", OpenCC.getLastError());
 
         OpenCC.setLastError(null);
-        assertNull(opencc1.convert(null, true));
+        assertEquals("", opencc1.convert(null, true));
         assertEquals("Input is null", OpenCC.getLastError());
     }
 

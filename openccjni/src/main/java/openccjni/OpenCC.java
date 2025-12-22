@@ -241,7 +241,7 @@ public final class OpenCC {
     public String convert(String input) {
         if (input == null) {
             setLastError("Input is null");
-            return null;
+            return "";
         }
         // Clear any previous Java-side error before invoking the native layer
         setLastError(null);
@@ -260,7 +260,7 @@ public final class OpenCC {
     public String convert(String input, boolean punctuation) {
         if (input == null) {
             setLastError("Input is null");
-            return null;
+            return "";
         }
         // Clear any previous Java-side error before invoking the native layer
         setLastError(null);
