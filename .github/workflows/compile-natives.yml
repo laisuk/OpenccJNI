@@ -165,7 +165,8 @@ jobs:
 
           # Create import lib for dynamic linking
           # gendef "${{ env.CAPI_LIB_NAME }}.dll"  
-          x86_64-w64-mingw32-dlltool -d "${{ env.CAPI_LIB_NAME }}.def" -l "lib${{ env.CAPI_LIB_NAME }}.dll.a"
+          # x86_64-w64-mingw32-dlltool -d "${{ env.CAPI_LIB_NAME }}.def" -l "lib${{ env.CAPI_LIB_NAME }}.dll.a"
+          x86_64-w64-mingw32-dlltool -l "lib${{ env.CAPI_LIB_NAME }}.dll.a"
 
           # Build wrapper: CAPI dynamic, runtimes static
           x86_64-w64-mingw32-g++ -shared -O2 -std=c++17 \
