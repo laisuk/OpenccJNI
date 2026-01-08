@@ -167,7 +167,7 @@ jobs:
           # Create import lib for dynamic linking
           # gendef "${{ env.CAPI_LIB_NAME }}.dll"  
           # x86_64-w64-mingw32-dlltool -d "${{ env.CAPI_LIB_NAME }}.def" -l "lib${{ env.CAPI_LIB_NAME }}.dll.a"
-          x86_64-w64-mingw32-dlltool -l -D opencc_fmmseg_capi.dll "lib${{ env.CAPI_LIB_NAME }}.dll.a"
+          x86_64-w64-mingw32-dlltool -D opencc_fmmseg_capi.dll -l "lib${{ env.CAPI_LIB_NAME }}.dll.a"
           
           ls -la
           ls -la libopencc_fmmseg_capi.dll.a
