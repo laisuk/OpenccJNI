@@ -18,23 +18,17 @@ env:
   # Link against the CAPI that is shipped under resources
   LINUX_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-x86_64
   MACOS_ARM64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-arm64
+  WINDOWS_X86_64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/windows-x86_64
 
-  # Library name for -l<name> (maps to libopencc_fmmseg_capi.{so,dylib,a})
+  # Library name for -l<name>
   CAPI_LIB_NAME: opencc_fmmseg_capi
 
 jobs:
-  native:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-14, windows-latest]
-    runs-on: ${{ matrix.os }}
-
+  linux:
+    name: Linux x86_64 (.so)
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+      - uses: actions/checkout@v4
 
       - name: Set up Temurin JDK 21
         uses: actions/setup-java@v4
@@ -42,119 +36,157 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Install MinGW-w64 (+ gendef)
+      - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y mingw-w64 mingw-w64-tools binutils-mingw-w64 zip
-          command -v x86_64-w64-mingw32-g++ >/dev/null
-          command -v x86_64-w64-mingw32-dlltool >/dev/null
-          command -v gendef >/dev/null
-
-      - name: Show tree for sanity
-        if: ${{ runner.os != 'Windows' }}
-        shell: bash
-        run: |
-          ls -la openccjni/src/main/java/openccjni || true
-          ls -la "${{ env.LINUX_LIB_DIR }}" || true
-          ls -la "${{ env.MACOS_ARM64_LIB_DIR }}" || true
+          sudo apt-get install -y build-essential zip
 
       - name: Generate JNI header (optional)
-        if: ${{ runner.os != 'Windows' }}
         shell: bash
         run: |
           set -euo pipefail
-          # Generates openccjni_OpenccWrapper.h into repo root (CWD), as you already do
           javac -h . "${{ env.JAVA_SRC_CLASS }}"
           test -f openccjni_OpenccWrapper.h || (echo "JNI header not generated" && exit 1)
 
-      - name: Build wrapper (Linux/macOS, static preferred)
-        if: ${{ runner.os != 'Windows' }}
+      - name: Build libOpenccWrapper.so
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${{ env.LINUX_LIB_DIR }}/lib${{ env.CAPI_LIB_NAME }}.so" || (echo "Missing CAPI .so" && exit 1)
+
+          mkdir -p artifacts/linux-x86_64
+
+          g++ -shared -fPIC -O2 -std=c++17 \
+            -o artifacts/linux-x86_64/libOpenccWrapper.so \
+            "${{ env.CPP_SRC }}" \
+            -I . \
+            -I "${JAVA_HOME}/include" \
+            -I "${JAVA_HOME}/include/linux" \
+            -I "${{ env.CAPI_INCLUDE }}" \
+            -L "${{ env.LINUX_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
+            -Wl,-rpath,'$ORIGIN'
+
+          # Zip wrapper only (CAPI already lives in resources in your repo)
+          (cd artifacts/linux-x86_64 && zip -9 OpenccJNI-natives-linux-x86_64.zip libOpenccWrapper.so)
+
+      - name: Upload artifact (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenccJNI-natives-linux-x86_64
+          path: artifacts/linux-x86_64/OpenccJNI-natives-linux-x86_64.zip
+          if-no-files-found: error
+
+  macos_arm64:
+    name: macOS arm64 (.dylib)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Generate JNI header (optional)
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -h . "${{ env.JAVA_SRC_CLASS }}"
+          test -f openccjni_OpenccWrapper.h || (echo "JNI header not generated" && exit 1)
+
+      - name: Build libOpenccWrapper.dylib
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${{ env.MACOS_ARM64_LIB_DIR }}/lib${{ env.CAPI_LIB_NAME }}.dylib" || (echo "Missing CAPI .dylib" && exit 1)
+
+          mkdir -p artifacts/macos-arm64
+
+          clang++ -shared -fPIC -O2 -std=c++17 \
+            -o artifacts/macos-arm64/libOpenccWrapper.dylib \
+            "${{ env.CPP_SRC }}" \
+            -I . \
+            -I "${JAVA_HOME}/include" \
+            -I "${JAVA_HOME}/include/darwin" \
+            -I "${{ env.CAPI_INCLUDE }}" \
+            -L "${{ env.MACOS_ARM64_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
+            -Wl,-rpath,@loader_path
+
+          (cd artifacts/macos-arm64 && zip -9 OpenccJNI-natives-macos-arm64.zip libOpenccWrapper.dylib)
+
+      - name: Upload artifact (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenccJNI-natives-macos-arm64
+          path: artifacts/macos-arm64/OpenccJNI-natives-macos-arm64.zip
+          if-no-files-found: error
+
+  windows_x86_64_mingw:
+    name: Windows x86_64 (.dll, built on Ubuntu, dyn CAPI + static libstdc++/libgcc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install MinGW-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 mingw-w64-tools binutils-mingw-w64 zip
+
+      - name: Generate JNI header (optional)
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -h . "${{ env.JAVA_SRC_CLASS }}"
+          test -f openccjni_OpenccWrapper.h || (echo "JNI header not generated" && exit 1)
+
+      - name: Build OpenccWrapper.dll (Win7 floor)
         shell: bash
         run: |
           set -euo pipefail
 
-          # Pick platform settings
-          case "${{ runner.os }}" in
-            Linux)
-              OUT=libOpenccWrapper.so
-              LIB_DIR="${{ env.LINUX_LIB_DIR }}"
-              JINC=linux
-              CXX=g++
-              RPATH="-Wl,-rpath,'\$ORIGIN'"
-              ;;
-            macOS)
-              OUT=libOpenccWrapper.dylib
-              LIB_DIR="${{ env.MACOS_ARM64_LIB_DIR }}"
-              JINC=darwin
-              CXX=clang++
-              # keep loader_path rpath so it can load sibling dylibs if any remain
-              RPATH="-Wl,-rpath,@loader_path"
-              ;;
-            *)
-              echo "Unsupported OS: ${{ runner.os }}"; exit 1;;
-          esac
+          DLL="${{ env.WINDOWS_X86_64_LIB_DIR }}/${{ env.CAPI_LIB_NAME }}.dll"
+          test -f "${DLL}" || (echo "Missing CAPI DLL: ${DLL}" && exit 1)
 
-          echo "Building on ${{ runner.os }}"
-          echo " - OUT    : ${OUT}"
-          echo " - LIB_DIR: ${LIB_DIR}"
+          # Copy needed inputs into a build CWD (matches your "everything in CWD" style)
+          mkdir -p build/windows-x86_64
+          cp -f "${{ env.CPP_SRC }}" build/windows-x86_64/OpenccWrapper.cpp
+          cp -f "${{ env.CAPI_INCLUDE }}/opencc_fmmseg_capi.h" build/windows-x86_64/opencc_fmmseg_capi.h
+          cp -f openccjni_OpenccWrapper.h build/windows-x86_64/openccjni_OpenccWrapper.h
+          cp -f "${DLL}" build/windows-x86_64/${{ env.CAPI_LIB_NAME }}.dll
 
-          test -f "${{ env.CPP_SRC }}" || (echo "Missing CPP_SRC: ${{ env.CPP_SRC }}" && exit 1)
-          test -d "${{ env.CAPI_INCLUDE }}" || (echo "Missing CAPI_INCLUDE: ${{ env.CAPI_INCLUDE }}" && exit 1)
-          test -d "${LIB_DIR}" || (echo "Missing LIB_DIR: ${LIB_DIR}" && exit 1)
+          cd build/windows-x86_64
 
-          # Prefer static archive if present
-          # Linux/macOS static archive name convention: libopencc_fmmseg_capi.a
-          STATIC_A="${LIB_DIR}/lib${{ env.CAPI_LIB_NAME }}.a"
+          # Create import lib for dynamic linking
+          x86_64-w64-mingw32-gendef "${{ env.CAPI_LIB_NAME }}.dll"
+          x86_64-w64-mingw32-dlltool -d "${{ env.CAPI_LIB_NAME }}.def" -l "lib${{ env.CAPI_LIB_NAME }}.dll.a"
 
-          # Dynamic runtime names
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            DYN_LIB="${LIB_DIR}/lib${{ env.CAPI_LIB_NAME }}.so"
-          else
-            DYN_LIB="${LIB_DIR}/lib${{ env.CAPI_LIB_NAME }}.dylib"
-          fi
-
-          LINK_FLAGS=""
-          if [ -f "${STATIC_A}" ]; then
-            echo "Using static link: ${STATIC_A}"
-            # Link the archive directly (most deterministic)
-            LINK_FLAGS="${STATIC_A}"
-          else
-            echo "Static archive not found; using dynamic link: ${DYN_LIB}"
-            test -f "${DYN_LIB}" || (echo "Missing dynamic CAPI: ${DYN_LIB}" && exit 1)
-            LINK_FLAGS="-L \"${LIB_DIR}\" -l${{ env.CAPI_LIB_NAME }} ${RPATH}"
-          fi
-
-          # Build output dir
-          mkdir -p "artifacts/${{ runner.os }}"
-          # Compile. Note: include '.' because javac -h wrote header into repo root (CWD)
-          # and CAPI_INCLUDE has opencc_fmmseg_capi.h
-          # shellcheck disable=SC2086
-          ${CXX} -shared -fPIC -O2 -std=c++17 \
-            -o "artifacts/${{ runner.os }}/${OUT}" \
-            "${{ env.CPP_SRC }}" \
+          # Build wrapper: CAPI dynamic, runtimes static
+          x86_64-w64-mingw32-g++ -shared -O2 -std=c++17 \
+            -D_WIN32_WINNT=0x0601 \
+            -static-libstdc++ -static-libgcc -s \
+            -o OpenccWrapper.dll OpenccWrapper.cpp \
             -I . \
             -I "${JAVA_HOME}/include" \
-            -I "${JAVA_HOME}/include/${JINC}" \
-            -I "${{ env.CAPI_INCLUDE }}" \
-            ${LINK_FLAGS}
+            -I "${JAVA_HOME}/include/win32" \
+            -L . -l${{ env.CAPI_LIB_NAME }}
 
-          file "artifacts/${{ runner.os }}/${OUT}" || true
-          echo "Built: artifacts/${{ runner.os }}/${OUT}"
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/windows-x86_64"
+          cp -f OpenccWrapper.dll "${GITHUB_WORKSPACE}/artifacts/windows-x86_64/"
+          # optional convenience copy (so the zip is runnable immediately)
+          cp -f "${{ env.CAPI_LIB_NAME }}.dll" "${GITHUB_WORKSPACE}/artifacts/windows-x86_64/"
 
-          # Zip artifact (wrapper only; if you dynamically linked, your consumer still needs the CAPI dylib/so at runtime)
-          (cd "artifacts/${{ runner.os }}" && zip -9 "OpenccJNI-natives-${{ runner.os }}.zip" "${OUT}")
+          (cd "${GITHUB_WORKSPACE}/artifacts/windows-x86_64" && zip -9 OpenccJNI-natives-windows-x86_64.zip ./*)
 
-      - name: Upload artifact (Linux/macOS)
-        if: ${{ runner.os != 'Windows' }}
+      - name: Upload artifact (Windows)
         uses: actions/upload-artifact@v4
         with:
-          name: OpenccJNI-natives-${{ runner.os }}
-          path: artifacts/${{ runner.os }}/OpenccJNI-natives-${{ runner.os }}.zip
+          name: OpenccJNI-natives-windows-x86_64
+          path: artifacts/windows-x86_64/OpenccJNI-natives-windows-x86_64.zip
           if-no-files-found: error
-
-      - name: Windows note
-        if: ${{ runner.os == 'Windows' }}
-        shell: pwsh
-        run: |
-          Write-Host "Windows leg present but build is skipped in this workflow."
-          Write-Host "Use your existing Windows toolchain job or keep shipping the prebuilt DLL."
