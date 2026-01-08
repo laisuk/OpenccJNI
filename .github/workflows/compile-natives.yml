@@ -36,10 +36,10 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Install build tools
+      - name: Install MinGW-w64
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential zip
+          sudo apt-get install -y mingw-w64 mingw-w64-tools binutils-mingw-w64 zip
 
       - name: Generate JNI header (optional)
         shell: bash
