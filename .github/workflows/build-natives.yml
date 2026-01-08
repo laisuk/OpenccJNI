@@ -12,7 +12,7 @@ permissions:
 env:
   # JNI sources live alongside Java in the openccjni package dir
   CPP_SRC: openccjni/src/main/java/openccjni/OpenccWrapper.cpp
-  JAVA_SRC_CLASS: openccjni/src/main/java/openccjni/OpenccWrapper.java
+  JAVA_SRC_CLASS: openccjni/src/main/java/openccjni/OpenccWrapper.java openccjni/src/main/java/openccjni/OpenccConfig.java
 
   # C headers (generated + capi header) live with java sources
   CAPI_INCLUDE: openccjni/src/main/java/openccjni
@@ -51,7 +51,7 @@ jobs:
 
       - name: Generate JNI header (optional)
         run: |
-          javac -h . "${{ env.JAVA_SRC_CLASS }}"
+          javac -h . ${{ env.JAVA_SRC_CLASS }}
 
       - name: Build libOpenccWrapper.so
         run: |
@@ -96,7 +96,7 @@ jobs:
 
       - name: Generate JNI header (optional)
         run: |
-          javac -h . "${{ env.JAVA_SRC_CLASS }}"
+          javac -h . ${{ env.JAVA_SRC_CLASS }}
 
       - name: Build libOpenccWrapper.dylib
         run: |
