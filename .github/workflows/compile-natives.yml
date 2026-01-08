@@ -137,7 +137,7 @@ jobs:
       - name: Install MinGW-w64
         run: |
           sudo apt-get update
-          sudo apt-get install -y mingw-w64 mingw-w64-tools binutils-mingw-w64 zip
+          sudo apt-get install -y mingw-w64 binutils-mingw-w64 zip
 
       - name: Generate JNI header (optional)
         shell: bash
@@ -164,7 +164,7 @@ jobs:
           cd build/windows-x86_64
 
           # Create import lib for dynamic linking
-          x86_64-w64-mingw32-gendef "${{ env.CAPI_LIB_NAME }}.dll"
+          gendef "${{ env.CAPI_LIB_NAME }}.dll"
           x86_64-w64-mingw32-dlltool -d "${{ env.CAPI_LIB_NAME }}.def" -l "lib${{ env.CAPI_LIB_NAME }}.dll.a"
 
           # Build wrapper: CAPI dynamic, runtimes static
