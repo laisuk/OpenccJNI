@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          javac -h . "${{ env.JAVA_SRC_CLASS }}"
+          javac -h . ${{ env.JAVA_SRC_CLASS }}
           test -f openccjni_OpenccWrapper.h || (echo "JNI header not generated" && exit 1)
 
       - name: Build libOpenccWrapper.so
@@ -92,7 +92,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          javac -h . "${{ env.JAVA_SRC_CLASS }}"
+          javac -h . ${{ env.JAVA_SRC_CLASS }}
           test -f openccjni_OpenccWrapper.h || (echo "JNI header not generated" && exit 1)
 
       - name: Build libOpenccWrapper.dylib
@@ -147,7 +147,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          javac -h . "${{ env.JAVA_SRC_CLASS }}"
+          javac -h . ${{ env.JAVA_SRC_CLASS }}
           test -f openccjni_OpenccWrapper.h || (echo "JNI header not generated" && exit 1)
 
       - name: Build OpenccWrapper.dll (Win7 floor)
