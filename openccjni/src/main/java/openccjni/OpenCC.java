@@ -1,10 +1,6 @@
 package openccjni;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Java binding for <a href="https://github.com/BYVoid/OpenCC">OpenCC</a> (Open Chinese Convert)
@@ -60,22 +56,9 @@ public final class OpenCC {
             ThreadLocal.withInitial(OpenccWrapper::new);
 
     /**
-     * Supported OpenCC configuration names (conversion profiles).
-     */
-    private static final List<String> SUPPORTED_CONFIGS = Collections.unmodifiableList(Arrays.asList(
-            "s2t", "t2s", "s2tw", "tw2s", "s2twp", "tw2sp", "s2hk", "hk2s",
-            "t2tw", "tw2t", "t2twp", "tw2tp", "t2hk", "hk2t", "t2jp", "jp2t"
-    ));
-
-    /**
-     * Supported OpenCC configurations as a set for quick lookup.
-     */
-    private static final Set<String> CONFIG_SET = Collections.unmodifiableSet(new HashSet<>(SUPPORTED_CONFIGS));
-
-    /**
      * Default configuration if none is specified.
      */
-    private static final String DEFAULT_CONFIG = "s2t";
+    private OpenccConfig config;
 
     /**
      * Last error message encountered by OpenCC operations.
@@ -98,6 +81,25 @@ public final class OpenCC {
     }
 
     /**
+     * Creates a new {@link OpenCC} instance with the specified configuration.
+     *
+     * <p>This overload accepts a strongly-typed {@link OpenccConfig} value and
+     * therefore avoids runtime string parsing and validation.</p>
+     *
+     * <p>If {@code configId} is {@code null}, the default configuration
+     * ({@code "s2t"}) is used and an error is recorded via
+     * {@link OpenCC#getLastError()}.</p>
+     *
+     * @param configId the OpenCC configuration identifier; may be {@code null}
+     * @return a new {@link OpenCC} instance using the specified (or defaulted)
+     * configuration
+     * @since 1.0.0
+     */
+    public static OpenCC fromConfig(OpenccConfig configId) {
+        return new OpenCC(configId);
+    }
+
+    /**
      * Converts the given text using the specified configuration.
      *
      * @param input  the input string to convert (non-null; empty is allowed)
@@ -107,17 +109,7 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public static String convert(String input, String config) {
-        if (input == null) {
-            setLastError("Input is null");
-            return null;
-        }
-        if (!CONFIG_SET.contains(config)) {
-            setLastError("Invalid config: " + config);
-            return input;
-        }
-        // Clear any previous Java-side error before invoking the native layer
-        setLastError(null);
-        return WRAPPER.get().convert(input, config, false);
+        return convert(input, config, false);
     }
 
     /**
@@ -135,13 +127,52 @@ public final class OpenCC {
             setLastError("Input is null");
             return null;
         }
-        if (!CONFIG_SET.contains(config)) {
+
+        OpenccConfig cfg = OpenccConfig.tryParse(config);
+        if (cfg == null) {
             setLastError("Invalid config: " + config);
             return input;
         }
-        // Clear any previous Java-side error before invoking the native layer
+
         setLastError(null);
-        return WRAPPER.get().convert(input, config, punctuation);
+        return WRAPPER.get().convert(input, cfg.toCanonicalName(), punctuation);
+    }
+
+    /**
+     * Converts the given text using the specified OpenCC configuration.
+     *
+     * <p>This overload accepts a strongly-typed {@link OpenccConfig} value and
+     * provides a fast path that avoids runtime string parsing and validation.
+     * It is intended for performance-sensitive code paths such as batch
+     * processing, document conversion, or repeated conversions with a
+     * known configuration.</p>
+     *
+     * <p>If {@code input} is {@code null}, this method returns {@code null} and
+     * records an error. If {@code configId} is {@code null}, the input is returned
+     * unchanged and an error is recorded via {@link #getLastError()}.</p>
+     *
+     * <p>This method does not perform any fallback to the default configuration.
+     * Callers that require tolerant behavior should use the string-based
+     * {@code convert(String, String, boolean)} overload instead.</p>
+     *
+     * @param input       the input string to convert; may be {@code null}
+     * @param configId    the OpenCC configuration identifier; may be {@code null}
+     * @param punctuation whether to convert punctuation as well
+     * @return the converted string, {@code null} if {@code input} is {@code null},
+     * or the original input if {@code configId} is {@code null}
+     * @since 1.0.0
+     */
+    public static String convert(String input, OpenccConfig configId, boolean punctuation) {
+        if (input == null) {
+            setLastError("Input is null");
+            return null;
+        }
+        if (configId == null) {
+            setLastError("Config is null");
+            return input;
+        }
+        setLastError(null);
+        return WRAPPER.get().convert(input, configId.toCanonicalName(), punctuation);
     }
 
     /**
@@ -174,7 +205,7 @@ public final class OpenCC {
      * large texts or documents, improving performance on multicore systems.</p>
      *
      * @return {@code true} if parallel mode is enabled globally;
-     *         {@code false} otherwise
+     * {@code false} otherwise
      * @since 1.0.2
      */
     public static boolean isParallel() {
@@ -203,32 +234,57 @@ public final class OpenCC {
     // ---------- Instance API ----------
 
     /**
-     * The current configuration used by this instance.
-     */
-    private String config;
-
-    /**
      * Creates an {@code OpenCC} instance with the default configuration ({@code "s2t"}).
      *
      * @since 1.0.0
      */
     public OpenCC() {
-        this.config = DEFAULT_CONFIG;
+        this.config = OpenccConfig.defaultConfig();
     }
 
     /**
-     * Creates an {@code OpenCC} instance with a specified configuration.
-     * If the provided config is invalid, {@code "s2t"} is used and an error is recorded.
+     * Creates an {@code OpenCC} instance with the specified configuration string.
      *
-     * @param config the configuration key (e.g., {@code "s2t"}, {@code "tw2s"})
+     * <p>The provided configuration string is parsed in a case-insensitive manner.
+     * Both canonical OpenCC names (for example {@code "s2t"}, {@code "t2twp"})
+     * and enum-style names (for example {@code "S2T"}, {@code "T2TWP"}) are accepted.</p>
+     *
+     * <p>If the configuration string is {@code null}, empty, or does not correspond
+     * to any supported configuration, the default configuration
+     * ({@code "s2t"}) is used and an error is recorded via
+     * {@link OpenCC#getLastError()}.</p>
+     *
+     * @param config the configuration key; may be {@code null}
      * @since 1.0.0
      */
     public OpenCC(String config) {
-        if (!CONFIG_SET.contains(config)) {
+        OpenccConfig parsed = OpenccConfig.tryParse(config);
+        if (parsed == null) {
             setLastError("Invalid config: " + config);
-            config = DEFAULT_CONFIG;
+            parsed = OpenccConfig.defaultConfig();
         }
-        this.config = config;
+        this.config = parsed;
+    }
+
+    /**
+     * Creates an {@code OpenCC} instance with the specified configuration identifier.
+     *
+     * <p>This constructor accepts a strongly-typed {@link OpenccConfig} value and
+     * therefore avoids runtime string parsing and validation.</p>
+     *
+     * <p>If {@code configId} is {@code null}, the default configuration
+     * ({@code "s2t"}) is used and an error is recorded via
+     * {@link OpenCC#getLastError()}.</p>
+     *
+     * @param configId the OpenCC configuration identifier; may be {@code null}
+     * @since 1.0.0
+     */
+    public OpenCC(OpenccConfig configId) {
+        if (configId == null) {
+            setLastError("Config is null");
+            configId = OpenccConfig.defaultConfig();
+        }
+        this.config = configId;
     }
 
     /**
@@ -239,13 +295,7 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public String convert(String input) {
-        if (input == null) {
-            setLastError("Input is null");
-            return "";
-        }
-        // Clear any previous Java-side error before invoking the native layer
-        setLastError(null);
-        return WRAPPER.get().convert(input, this.config, false);
+        return convert(input, false);
     }
 
     /**
@@ -262,34 +312,86 @@ public final class OpenCC {
             setLastError("Input is null");
             return "";
         }
-        // Clear any previous Java-side error before invoking the native layer
         setLastError(null);
-        return WRAPPER.get().convert(input, this.config, punctuation);
+        return WRAPPER.get().convert(input, this.config.toCanonicalName(), punctuation);
     }
 
     /**
-     * Returns the current configuration key used by this instance.
+     * Returns the canonical configuration name used by this {@code OpenCC} instance.
      *
-     * @return the configuration key (never null)
+     * <p>The returned value is the lowercase OpenCC configuration key
+     * (for example {@code "s2t"}, {@code "t2twp"}), suitable for use in
+     * native calls, logging, CLI output, or configuration serialization.</p>
+     *
+     * <p>This method never returns {@code null}. The value always reflects
+     * the effective configuration currently in use by this instance.</p>
+     *
+     * @return the canonical OpenCC configuration name (never {@code null})
      * @since 1.0.0
      */
     public String getConfig() {
+        return this.config.toCanonicalName();
+    }
+
+    /**
+     * Returns the OpenCC configuration identifier used by this instance.
+     *
+     * <p>This method provides access to the strongly-typed
+     * {@link OpenccConfig} value and avoids string-based configuration
+     * handling. It is the preferred accessor for programmatic use.</p>
+     *
+     * <p>The returned value is never {@code null}.</p>
+     *
+     * @return the current {@link OpenccConfig} identifier (never {@code null})
+     * @since 1.0.0
+     */
+    public OpenccConfig getConfigId() {
         return this.config;
     }
 
     /**
-     * Updates this instance's configuration. If the provided key is invalid,
-     * the configuration falls back to {@code "s2t"} and an error is recorded.
+     * Updates this instance's configuration using a configuration string.
      *
-     * @param config the configuration key (e.g., {@code "s2t"}, {@code "tw2s"})
+     * <p>The provided configuration string is parsed in a case-insensitive manner.
+     * Both canonical OpenCC names (for example {@code "s2t"}, {@code "t2twp"})
+     * and enum-style names (for example {@code "S2T"}, {@code "T2TWP"}) are accepted.</p>
+     *
+     * <p>If the configuration string is {@code null}, empty, or does not correspond
+     * to any supported configuration, the default configuration
+     * ({@code "s2t"}) is used and an error is recorded via
+     * {@link OpenCC#getLastError()}.</p>
+     *
+     * @param config the configuration key; may be {@code null}
      * @since 1.0.0
      */
     public void setConfig(String config) {
-        if (!CONFIG_SET.contains(config)) {
+        OpenccConfig parsed = OpenccConfig.tryParse(config);
+        if (parsed == null) {
             setLastError("Invalid config: " + config);
-            config = DEFAULT_CONFIG;
+            parsed = OpenccConfig.defaultConfig();
         }
-        this.config = config;
+        this.config = parsed;
+    }
+
+    /**
+     * Updates this instance's configuration using a configuration identifier.
+     *
+     * <p>This overload accepts a strongly-typed {@link OpenccConfig} value and
+     * avoids runtime string parsing and validation.</p>
+     *
+     * <p>If {@code configId} is {@code null}, the default configuration
+     * ({@code "s2t"}) is used and an error is recorded via
+     * {@link OpenCC#getLastError()}.</p>
+     *
+     * @param configId the OpenCC configuration identifier; may be {@code null}
+     * @since 1.0.0
+     */
+    public void setConfig(OpenccConfig configId) {
+        if (configId == null) {
+            setLastError("Config is null");
+            configId = OpenccConfig.defaultConfig();
+        }
+        this.config = configId;
     }
 
     /**
@@ -299,7 +401,8 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public static List<String> getSupportedConfigs() {
-        return SUPPORTED_CONFIGS;
+        // single source: enum
+        return OpenccConfig.supportedCanonicalNames();
     }
 
     /**

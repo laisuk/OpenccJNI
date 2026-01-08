@@ -6,14 +6,11 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.0.4.1] - 2025-12-23
+## [1.0.4] - 2026-01-08
 
 ### Added
 - Added PDF file type supported as input in `openccjni-cli` subcommand `pdf`
-
----
-
-## [1.0.4] - 2025-11-25
+- Set OpenccConfig as single source of truth for OpenccJNI configuration.
 
 ### Changed
 - Refactored `OfficeHelper` to include a core `byte[]`-based `convert()` API for in-memory document processing.

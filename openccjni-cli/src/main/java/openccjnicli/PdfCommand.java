@@ -1,6 +1,7 @@
 package openccjnicli;
 
 import openccjni.OpenCC;
+import openccjni.OpenccConfig;
 import pdfboxhelper.PdfBoxHelper;
 import pdfboxhelper.PdfReflowHelper;
 import picocli.CommandLine.Command;
@@ -17,7 +18,7 @@ import java.util.logging.Logger;
  *
  * <p>Typical usage:
  * <pre>
- *   openccjava-cli pdf \
+ *   openccjni-cli pdf \
  *     -i input.pdf \
  *     -o output.txt \
  *     -c s2t \
@@ -34,7 +35,7 @@ import java.util.logging.Logger;
  */
 @Command(
         name = "pdf",
-        description = "\033[1;34mExtract PDF text, optionally reflow CJK paragraphs, then convert with OpenccJava\033[0m",
+        description = "\033[1;34mExtract PDF text, optionally reflow CJK paragraphs, then convert with OpenccJNI\033[0m",
         mixinStandardHelpOptions = true
 )
 public class PdfCommand implements Runnable {
@@ -57,8 +58,7 @@ public class PdfCommand implements Runnable {
     @Option(
             names = {"-c", "--config"},
             paramLabel = "<conversion>",
-            description = "OpenCC conversion configuration (e.g. s2t, t2s, s2tw, t2hk, t2jp, ...)",
-            required = true
+            description = "OpenCC conversion configuration (e.g. s2t, t2s, s2tw, t2hk, t2jp, ...)"
     )
     private String config;
 
@@ -86,21 +86,42 @@ public class PdfCommand implements Runnable {
     )
     private boolean compact;
 
+    @Option(
+            names = {"-e", "--extract"},
+            description = "Extract text from PDF document only (default: false)"
+    )
+    private boolean extract;
+
     private static final Logger LOGGER = Logger.getLogger(PdfCommand.class.getName());
 
     @Override
     public void run() {
+        if (!extract) {
+            if (config == null ||
+                    !OpenccConfig.isSupportedConfig(config)) {
+                System.err.println("❌ Missing or invalid config: " + config);
+                return;
+            }
+        }
+
+        if (extract && punct) {
+            System.err.println("ℹ️  Note: --punct has no effect in extract-only mode.");
+        }
+
         try {
             validateInputPdf();
 
             if (output == null) {
                 String inputName = removeExtension(input.getName());
-                String defaultName = inputName + "_converted.txt";
+                String defaultName;
+                if (extract) {
+                    defaultName = inputName + "_extracted.txt";
+                } else {
+                    defaultName = inputName + "_converted.txt";
+                }
                 output = new File(input.getParentFile(), defaultName);
                 System.err.println("ℹ️ Output file not specified. Using: " + output.getAbsolutePath());
             }
-
-            OpenCC opencc = new OpenCC(config);
 
             // --- NEW: progress bar setup ---
             ConsoleProgressBar progressBar = new ConsoleProgressBar(20);
@@ -122,19 +143,23 @@ public class PdfCommand implements Runnable {
                 processed = PdfReflowHelper.reflowCjkParagraphs(raw, addHeader, compact);
             }
 
-            // OpenCC conversion
-            System.err.println("🔁 Converting with OpenccJNI...");
-            String converted = opencc.convert(processed, punct);
+            if (extract) {
+                System.err.println("🔁 Writing PDF extracted text...");
+                Files.write(output.toPath(), processed.getBytes(StandardCharsets.UTF_8));
+            } else {
+                OpenCC opencc = new OpenCC(config);
+                // OpenCC conversion
+                System.err.println("🔁 Converting with OpenccJNI...");
+                String converted = opencc.convert(processed, punct);
+                // Save UTF-8
+                Files.write(output.toPath(), converted.getBytes(StandardCharsets.UTF_8));
+            }
 
-            // Save UTF-8
-//            assert converted != null;
-            Files.write(output.toPath(), converted.getBytes(StandardCharsets.UTF_8));
-
-            System.err.println("✅ PDF conversion succeeded.");
+            System.err.println("✅ PDF " + (extract ? "extraction" : "conversion") + " succeeded.");
             System.err.println("📄 Input : " + input.getAbsolutePath());
             System.err.println("📁 Output: " + output.getAbsolutePath());
-            System.err.println("⚙️  Config: " + config +
-                    (punct ? " (punct on)" : " (punct off)") +
+            System.err.println("⚙️  Config: " + (extract ? "Extract only" : config +
+                    (punct ? " (punct on)" : " (punct off)")) +
                     (addHeader ? ", header" : "") +
                     (reflow ? ", reflow" : "") +
                     (compact ? ", compact" : ""));

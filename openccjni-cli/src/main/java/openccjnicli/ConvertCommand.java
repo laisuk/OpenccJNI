@@ -4,7 +4,9 @@ import openccjni.OpenCC;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.logging.Level;
@@ -15,16 +17,19 @@ import java.util.logging.Logger;
  */
 @Command(name = "convert", description = "\033[1;34mConvert plain text using OpenccJNI\033[0m", mixinStandardHelpOptions = true)
 public class ConvertCommand implements Runnable {
-    @Option(names = "--list-configs", description = "List all supported OpenccJNI conversion configurations")
-    private boolean listConfigs;
-
     @Option(names = {"-i", "--input"}, paramLabel = "<file>", description = "Input file")
     private File input;
 
     @Option(names = {"-o", "--output"}, paramLabel = "<file>", description = "Output file")
     private File output;
 
-    @Option(names = {"-c", "--config"}, paramLabel = "<conversion>", description = "Conversion configuration", required = true)
+    @Option(names = {"-c", "--config"}, paramLabel = "<conversion>", description = {
+            "Conversion configuration.",
+            "Supported values:",
+            "  s2t, t2s, s2tw, tw2s, s2twp, tw2sp,",
+            "  s2hk, hk2s, t2tw, tw2t, t2twp, tw2tp,",
+            "  t2hk, hk2t, t2jp, jp2t"
+    }, required = true)
     private String config;
 
     @Option(names = {"-p", "--punct"}, description = "Punctuation conversion (default: false)")
@@ -51,12 +56,6 @@ public class ConvertCommand implements Runnable {
 
     @Override
     public void run() {
-        if (listConfigs) {
-            System.out.println("Available OpenccJNI configurations:");
-            OpenCC.getSupportedConfigs().forEach(cfg -> System.out.println("  " + cfg));
-            return;
-        }
-
         handleTextConversion();
     }
 
@@ -66,7 +65,7 @@ public class ConvertCommand implements Runnable {
             String inputText;
 
             if (input != null) {
-//                inputText = Files.readString(input.toPath(), Charset.forName(inEncoding));
+                // inputText = Files.readString(input.toPath(), Charset.forName(inEncoding));
                 // Java 8: no Files.readString, use readAllBytes
                 byte[] bytes = Files.readAllBytes(input.toPath());
                 inputText = new String(bytes, Charset.forName(inEncoding));
@@ -82,7 +81,7 @@ public class ConvertCommand implements Runnable {
                     System.err.println("Input (Charset: " + inputCharset.name() + ")");
                     System.err.println(BLUE + "Input text to convert, <Ctrl+D> (Unix) <Ctrl-Z> (Windows) to submit:" + RESET);
                 }
-//                inputText = new String(System.in.readAllBytes(), inputCharset);
+                // inputText = new String(System.in.readAllBytes(), inputCharset);
                 // Java 8: no InputStream.readAllBytes, use a helper
                 inputText = new String(inputStreamReadAllBytes(), inputCharset);
             }
@@ -90,7 +89,7 @@ public class ConvertCommand implements Runnable {
             String outputText = opencc.convert(inputText, punct);
 
             if (output != null) {
-//                Files.writeString(output.toPath(), outputText, Charset.forName(outEncoding));
+                // Files.writeString(output.toPath(), outputText, Charset.forName(outEncoding));
                 // Java 8: no Files.writeString, use Files.write
                 Files.write(output.toPath(), outputText.getBytes(Charset.forName(outEncoding)));
             } else {
