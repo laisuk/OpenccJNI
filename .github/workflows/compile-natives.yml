@@ -160,6 +160,7 @@ jobs:
           cp -f "${{ env.CAPI_INCLUDE }}/opencc_fmmseg_capi.h" build/windows-x86_64/opencc_fmmseg_capi.h
           cp -f openccjni_OpenccWrapper.h build/windows-x86_64/openccjni_OpenccWrapper.h
           cp -f "${DLL}" build/windows-x86_64/${{ env.CAPI_LIB_NAME }}.dll
+          cp -r "${GITHUB_WORKSPACE}/${{ env.CAPI_INCLUDE }}/jni-headers" .
 
           cd build/windows-x86_64
 
@@ -174,8 +175,8 @@ jobs:
             -static-libstdc++ -static-libgcc -s \
             -o OpenccWrapper.dll OpenccWrapper.cpp \
             -I . \
-            -I "${{ env.CAPI_INCLUDE }}/jni-headers/include" \
-            -I "${{ env.CAPI_INCLUDE }}/jni-headers/include/win32" \
+            -I "./jni-headers/include" \
+            -I "./jni-headers/include/win32" \
             -L . -l${{ env.CAPI_LIB_NAME }}
 
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/windows-x86_64"
