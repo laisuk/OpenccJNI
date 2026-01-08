@@ -62,6 +62,36 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert
     return result;
 }
 
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert_1cfg
+  (JNIEnv* env, jobject /*obj*/, jlong instance, jbyteArray input, jint config_id, jboolean punctuation) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) env->ThrowNew(exClass, "OpenCC instance is null");
+        return nullptr;
+    }
+
+    auto inputStrOpt = jbyteArrayToString(env, input);
+    if (!inputStrOpt) return nullptr;
+
+    char* output = opencc_convert_cfg(
+        reinterpret_cast<void*>(instance),
+        inputStrOpt->c_str(),
+        static_cast<opencc_config_t>(config_id),
+        (punctuation == JNI_TRUE)
+    );
+
+    jbyteArray result = nullptr;
+    if (output != nullptr) {
+        const jsize outLen = static_cast<jsize>(std::strlen(output));
+        result = env->NewByteArray(outLen);
+        if (result != nullptr) {
+            env->SetByteArrayRegion(result, 0, outLen, reinterpret_cast<const jbyte*>(output));
+        }
+        opencc_string_free(output);
+    }
+    return result;
+}
+
 JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1delete
   (JNIEnv* env, jobject /*obj*/, jlong instance) {
     if (instance == 0) {
@@ -122,4 +152,29 @@ JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1last_1error
     jstring s = env->NewStringUTF(err); // assumes UTF-8
     opencc_error_free(err);
     return s;
+}
+
+JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1name_1to_1id
+  (JNIEnv* env, jobject /*obj*/, jbyteArray name_utf8) {
+    auto nameOpt = jbyteArrayToString(env, name_utf8);
+    if (!nameOpt) return static_cast<jint>(-1);
+
+    opencc_config_t id{};
+    bool ok = opencc_config_name_to_id(nameOpt->c_str(), &id);
+    if (!ok) return static_cast<jint>(-1);
+
+    return static_cast<jint>(id);
+}
+
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1id_1to_1name
+  (JNIEnv* env, jobject /*obj*/, jint config_id) {
+    const char* name = opencc_config_id_to_name(static_cast<opencc_config_t>(config_id));
+    if (name == nullptr) return nullptr;
+
+    const jsize len = static_cast<jsize>(std::strlen(name));
+    jbyteArray result = env->NewByteArray(len);
+    if (result != nullptr) {
+        env->SetByteArrayRegion(result, 0, len, reinterpret_cast<const jbyte*>(name));
+    }
+    return result;
 }

@@ -71,6 +71,41 @@ public class OpenccWrapper implements AutoCloseable {
      */
     private native String opencc_last_error();
 
+    /**
+     * Converts text using a numeric config id and punctuation setting.
+     *
+     * <p>Native contract: if {@code configId} is invalid, this function still returns
+     * a newly allocated UTF-8 error message string (e.g. {@code "Invalid config: 123"})
+     * and also sets the same message as last error.</p>
+     *
+     * @param instance    pointer to native OpenCC instance
+     * @param input       UTF-8 encoded input string
+     * @param configId    numeric config id (opencc_config_t)
+     * @param punctuation whether to convert punctuation
+     * @return UTF-8 encoded result (or error string for invalid config), or {@code null}
+     * only if {@code instance} or {@code input} is null, or if allocation fails
+     * @since opencc-fmmseg-capi v0.8.4
+     */
+    private native byte[] opencc_convert_cfg(long instance, byte[] input, int configId, boolean punctuation);
+
+    /**
+     * Converts a canonical OpenCC config name (UTF-8) to its numeric config id.
+     *
+     * @param nameUtf8 UTF-8 encoded canonical config name (e.g. {@code "s2twp"})
+     * @return numeric config id (opencc_config_t), or {@code -1} if invalid / null
+     * @since opencc-fmmseg-capi v0.8.4
+     */
+    private native int opencc_config_name_to_id(byte[] nameUtf8);
+
+    /**
+     * Converts a numeric OpenCC config id to its canonical config name (UTF-8).
+     *
+     * @param configId numeric config id (opencc_config_t)
+     * @return UTF-8 encoded canonical config name, or {@code null} if invalid
+     * @since opencc-fmmseg-capi v0.8.4
+     */
+    private native byte[] opencc_config_id_to_name(int configId);
+
     // ------------------------------------------------------------------------
     // Fields
     // ------------------------------------------------------------------------
@@ -143,6 +178,92 @@ public class OpenccWrapper implements AutoCloseable {
         }
 
         return new String(rawOutput, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Converts the given input string using a numeric OpenCC configuration id.
+     *
+     * <p>This is a fast path for callers who already resolved a config name to an id
+     * (for example via {@link #configNameToId(String)}). It avoids passing config strings
+     * across JNI and lets the native layer select configs by numeric id.</p>
+     *
+     * <p>Contract (native side):</p>
+     * <ul>
+     *   <li>If {@code instance} or {@code input} is null, native returns {@code null}.</li>
+     *   <li>If {@code configId} is invalid, native returns a newly allocated UTF-8 error string
+     *       like {@code "Invalid config: 123"} and also sets it as the last error.</li>
+     *   <li>Native returns {@code null} only for fatal errors (e.g. OOM / null inputs).</li>
+     * </ul>
+     *
+     * @param input       input text (non-null)
+     * @param configId    numeric OpenCC config id (opencc_config_t)
+     * @param punctuation whether to convert punctuation as well
+     * @return converted text; for invalid {@code configId}, returns the native error string
+     * @throws RuntimeException if the native conversion returns {@code null} unexpectedly
+     *                          (typically OOM or a fatal native error)
+     * @since opencc-fmmseg-capi v0.8.4
+     */
+    public String convertCfg(String input, int configId, boolean punctuation) {
+        ensureOpen();
+        Objects.requireNonNull(input, "input cannot be null");
+        if (input.isEmpty()) return "";
+
+        byte[] inputBytes = input.getBytes(StandardCharsets.UTF_8);
+        byte[] rawOutput = opencc_convert_cfg(instance, inputBytes, configId, punctuation);
+
+        if (rawOutput == null) {
+            // per contract: NULL only on fatal errors (NULL input/instance or OOM)
+            throw new RuntimeException("Conversion failed: " + getLastError());
+        }
+        return new String(rawOutput, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Resolves a canonical OpenCC configuration name to its numeric configuration id.
+     *
+     * <p>This method is tolerant: it returns {@code -1} for null/blank/unknown inputs
+     * and never throws.</p>
+     *
+     * <p>Input is expected to be an OpenCC canonical name (lowercase), e.g. {@code "s2twp"}.
+     * If you want to accept enum-style or mixed-case inputs, normalize using
+     * {@link OpenccConfig#toCanonicalNameOrNull(String)} first.</p>
+     *
+     * @param canonicalName canonical config name (e.g. {@code "s2twp"}); may be null
+     * @return numeric config id (opencc_config_t), or {@code -1} if invalid/unknown
+     * @since opencc-fmmseg-capi v0.8.4
+     */
+    public int configNameToId(String canonicalName) {
+        ensureOpen();
+        if (canonicalName == null) return -1;
+        String trimmed = canonicalName.trim();
+        if (trimmed.isEmpty()) return -1;
+        return opencc_config_name_to_id(trimmed.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Resolves an {@link OpenccConfig} enum value to its numeric configuration id.
+     *
+     * @param configId config enum; may be null
+     * @return numeric config id (opencc_config_t), or {@code -1} if {@code configId} is null
+     * @since opencc-fmmseg-capi v0.8.4
+     */
+    public int configNameToId(OpenccConfig configId) {
+        ensureOpen();
+        if (configId == null) return -1;
+        return opencc_config_name_to_id(configId.toCanonicalName().getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Resolves a numeric OpenCC configuration id to its canonical configuration name.
+     *
+     * @param configId numeric config id (opencc_config_t)
+     * @return canonical config name (e.g. {@code "s2twp"}), or {@code null} if {@code configId} is invalid
+     * @since opencc-fmmseg-capi v0.8.4
+     */
+    public String configIdToName(int configId) {
+        ensureOpen();
+        byte[] name = opencc_config_id_to_name(configId);
+        return name == null ? null : new String(name, StandardCharsets.UTF_8);
     }
 
     /**

@@ -63,6 +63,30 @@ JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1delete
 JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1last_1error
   (JNIEnv *, jobject);
 
+/*
+ * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_convert_cfg
+ * Signature: (J[BIZ)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert_1cfg
+  (JNIEnv *, jobject, jlong, jbyteArray, jint, jboolean);
+
+/*
+ * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_config_name_to_id
+ * Signature: ([B)I
+ */
+JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1name_1to_1id
+  (JNIEnv *, jobject, jbyteArray);
+
+/*
+ * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_config_id_to_name
+ * Signature: (I)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1id_1to_1name
+  (JNIEnv *, jobject, jint);
+
 #ifdef __cplusplus
 }
 #endif

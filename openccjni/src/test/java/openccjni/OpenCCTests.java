@@ -65,12 +65,20 @@ public class OpenCCTests {
 
     @Test
     void testNullInputInstanceConvert() {
+        // --- convert(String) ---
         OpenCC.setLastError(null);
-        assertEquals("", opencc1.convert(null));
+
+        String r1 = opencc1.convert(null);
+
+        assertNull(r1, "Null input should return null");
         assertEquals("Input is null", OpenCC.getLastError());
 
+        // --- convert(String, boolean) ---
         OpenCC.setLastError(null);
-        assertEquals("", opencc1.convert(null, true));
+
+        String r2 = opencc1.convert(null, true);
+
+        assertNull(r2, "Null input should return null");
         assertEquals("Input is null", OpenCC.getLastError());
     }
 
