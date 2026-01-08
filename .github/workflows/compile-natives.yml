@@ -159,10 +159,10 @@ jobs:
           cp -f "${{ env.CPP_SRC }}" build/windows-x86_64/OpenccWrapper.cpp
           cp -f "${{ env.CAPI_INCLUDE }}/opencc_fmmseg_capi.h" build/windows-x86_64/opencc_fmmseg_capi.h
           cp -f openccjni_OpenccWrapper.h build/windows-x86_64/openccjni_OpenccWrapper.h
-          cp -f "${DLL}" build/windows-x86_64/${{ env.CAPI_LIB_NAME }}.dll
-          cp -r "${GITHUB_WORKSPACE}/${{ env.CAPI_INCLUDE }}/jni-headers" .
+          cp -f "${DLL}" build/windows-x86_64/${{ env.CAPI_LIB_NAME }}.dll          
 
           cd build/windows-x86_64
+          cp -r "${GITHUB_WORKSPACE}/${{ env.CAPI_INCLUDE }}/jni-headers" .
 
           # Create import lib for dynamic linking
           # gendef "${{ env.CAPI_LIB_NAME }}.dll"  
