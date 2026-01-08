@@ -42,7 +42,7 @@ jobs:
           sudo apt-get install -y mingw-w64 mingw-w64-tools binutils-mingw-w64 zip
           command -v x86_64-w64-mingw32-g++ >/dev/null
           command -v x86_64-w64-mingw32-dlltool >/dev/null
-          command -v x86_64-w64-mingw32-gendef >/dev/null
+          command -v gendef >/dev/null
 
       - name: Generate JNI header (optional)
         shell: bash
