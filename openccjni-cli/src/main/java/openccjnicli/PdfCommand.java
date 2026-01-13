@@ -120,7 +120,8 @@ public class PdfCommand implements Runnable {
                     defaultName = inputName + "_converted.txt";
                 }
                 output = new File(input.getParentFile(), defaultName);
-                System.err.println("ℹ️ Output file not specified. Using: " + output.getAbsolutePath());
+                String outPath = output.toPath().toAbsolutePath().normalize().toString();
+                System.err.println("ℹ️ Output file not specified. Using: " + outPath);
             }
 
             // --- NEW: progress bar setup ---
@@ -152,12 +153,13 @@ public class PdfCommand implements Runnable {
                 System.err.println("🔁 Converting with OpenccJNI...");
                 String converted = opencc.convert(processed, punct);
                 // Save UTF-8
+                assert converted != null;
                 Files.write(output.toPath(), converted.getBytes(StandardCharsets.UTF_8));
             }
 
             System.err.println("✅ PDF " + (extract ? "extraction" : "conversion") + " succeeded.");
-            System.err.println("📄 Input : " + input.getAbsolutePath());
-            System.err.println("📁 Output: " + output.getAbsolutePath());
+            System.err.println("📄 Input : " + input.toPath().toAbsolutePath().normalize());
+            System.err.println("📁 Output: " + output.toPath().toAbsolutePath().normalize());
             System.err.println("⚙️  Config: " + (extract ? "Extract only" : config +
                     (punct ? " (punct on)" : " (punct off)")) +
                     (addHeader ? ", header" : "") +
