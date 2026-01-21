@@ -345,6 +345,23 @@ public final class OpenCC {
     }
 
     /**
+     * Checks whether a configuration string corresponds to a supported
+     * OpenCC conversion configuration.
+     *
+     * <p>The check is case-insensitive and accepts both canonical names
+     * (for example {@code "s2t"}, {@code "t2twp"}) and enum-style names
+     * (for example {@code "S2T"}, {@code "T2TWP"}).</p>
+     *
+     * <p>This method performs no allocation beyond parsing and never throws.</p>
+     *
+     * @param value the configuration string to check; may be {@code null}
+     * @return {@code true} if the configuration is supported; {@code false} otherwise
+     */
+    public static boolean isSupportedConfig(String value) {
+        return OpenccConfig.isValidConfig(value);
+    }
+
+    /**
      * Updates this instance's configuration using a configuration string.
      *
      * <p>If invalid, defaults to {@code "s2t"} and records an error.</p>
