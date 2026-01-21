@@ -136,4 +136,47 @@ public class OpenCCTests {
         assertNotNull(OpenCC.getLastError());
         System.out.println("Last Error: " + OpenCC.getLastError());
     }
+
+    @Test
+    void testConfigEnum() {
+        OpenccConfig configEnum = OpenccConfig.tryParse("s2twp");
+        String ConfigStr = configEnum.toCanonicalName();
+        assertEquals("s2twp", ConfigStr);
+    }
+
+    @Test
+    void testConfigEnumRoundTrip() {
+        // ✅ Case-insensitive matching
+        assertEquals(OpenccConfig.S2Twp, OpenccConfig.tryParse("s2twp"));
+        assertEquals(OpenccConfig.S2Twp, OpenccConfig.tryParse("S2Twp"));
+        assertEquals(OpenccConfig.S2Twp, OpenccConfig.tryParse("S2TWP"));
+        // ✅ Round-trip consistency
+        for (OpenccConfig cfg : OpenccConfig.values()) {
+            assertEquals(cfg, OpenccConfig.tryParse(cfg.toCanonicalName()));
+            assertEquals(cfg.toCanonicalName(), cfg.toCanonicalName().toLowerCase()); // ensure lowercase form
+        }
+    }
+
+    @Test
+    void testInvalidConfigTryParseReturnsNull() {
+        // ✅ Null input → tolerant: returns null
+        assertNull(OpenccConfig.tryParse(null));
+
+        // ✅ Empty / whitespace → tolerant: returns null
+        assertNull(OpenccConfig.tryParse(""));
+        assertNull(OpenccConfig.tryParse("   "));
+
+        // ✅ Unknown config → tolerant: returns null
+        assertNull(OpenccConfig.tryParse("invalid"));
+        assertNull(OpenccConfig.tryParse("t2xyz"));
+    }
+
+    @Test
+    void testInvalidConfigStrictCanonicalizeThrows() {
+        // ✅ Null / invalid input → strict: throws
+        assertThrows(IllegalArgumentException.class, () -> OpenccConfig.toCanonicalName(null));
+        assertThrows(IllegalArgumentException.class, () -> OpenccConfig.toCanonicalName(""));
+        assertThrows(IllegalArgumentException.class, () -> OpenccConfig.toCanonicalName("invalid"));
+        assertThrows(IllegalArgumentException.class, () -> OpenccConfig.toCanonicalName("t2xyz"));
+    }
 }
