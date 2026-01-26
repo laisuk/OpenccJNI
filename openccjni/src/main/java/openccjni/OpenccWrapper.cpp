@@ -20,6 +20,27 @@ static std::optional<std::string> jbyteArrayToString(JNIEnv* env, jbyteArray arr
     return s;
 }
 
+// -------------------- NEW: library-level ABI + version --------------------
+
+JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1abi_1number
+  (JNIEnv* /*env*/, jclass /*cls*/) {
+    // C API returns uint32_t; Java side is int.
+    // ABI numbers are typically small; if you ever exceed signed int range,
+    // consider changing Java signature to long.
+    const uint32_t abi = opencc_abi_number();
+    return static_cast<jint>(abi);
+}
+
+JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1version_1string
+  (JNIEnv* env, jclass /*cls*/) {
+    const char* ver = opencc_version_string();
+    if (ver == nullptr) return nullptr; // defensive
+    // opencc_version_string() is documented as null-terminated UTF-8.
+    return env->NewStringUTF(ver);
+}
+
+// -------------------- existing instance methods --------------------
+
 JNIEXPORT jlong JNICALL Java_openccjni_OpenccWrapper_opencc_1new
   (JNIEnv* env, jobject /*obj*/) {
     return reinterpret_cast<jlong>(opencc_new());

@@ -65,8 +65,8 @@ g++ -shared -o OpenccWrapper.dll OpenccWrapper.cpp -I . -I "C:\Program Files\Jav
 g++ -shared `
   -o OpenccWrapper.dll OpenccWrapper.cpp `
   -I. `
-  -I"C:\Program Files\Java\jdk-21\include" `
-  -I"C:\Program Files\Java\jdk-21\include\win32" `
+  -I"C:\Program Files\Java\jdk-21.0.10\include" `
+  -I"C:\Program Files\Java\jdk-21.0.10\include\win32" `
   -L. -lopencc_fmmseg_capi `
   -static-libstdc++ -static-libgcc `
   -s

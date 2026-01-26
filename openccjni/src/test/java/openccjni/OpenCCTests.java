@@ -197,4 +197,36 @@ public class OpenCCTests {
         }
     }
 
+    @Test
+    void testAbiNumberIsPositive() {
+        int abi = OpenccWrapper.getAbiNumber();
+        assertTrue(abi > 0, "ABI number should be > 0, got: " + abi);
+    }
+
+    @Test
+    void testVersionStringIsNotBlank() {
+        String ver = OpenccWrapper.getVersionString();
+        assertNotNull(ver, "Version string should not be null");
+        assertFalse(ver.trim().isEmpty(), "Version string should not be blank");
+    }
+
+    @Test
+    void testVersionStringLooksLikeSemverPrefix() {
+        // Allow "0.8.4", "0.8.4+meta", "0.8.4-rc1", etc.
+        String ver = OpenccWrapper.getVersionString();
+        assertNotNull(ver);
+        assertTrue(ver.matches("^\\d+\\.\\d+\\.\\d+.*$"),
+                "Version string should look like semver (x.y.z...), got: " + ver);
+    }
+
+    @Test
+    void testCanCreateWrapperAndConvertBasic() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            String out = w.convert("汉字转换测试", "s2t", false);
+            assertNotNull(out);
+            assertFalse(out.isEmpty());
+            // Not asserting exact output here to avoid dict-version sensitivity.
+        }
+    }
+
 }

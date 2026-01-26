@@ -27,6 +27,24 @@ public class OpenccWrapper implements AutoCloseable {
     // ------------------------------------------------------------------------
 
     /**
+     * Returns the native OpenCC-FMMSEG C ABI version number.
+     *
+     * <p>This value only changes when the C ABI is broken and can be used
+     * for runtime compatibility checks.</p>
+     */
+    private static native int opencc_abi_number();
+
+    /**
+     * Returns the native OpenCC-FMMSEG version string.
+     *
+     * <p>The returned string is owned by the native library and is valid
+     * for the lifetime of the process.</p>
+     *
+     * <p>Example: {@code "0.8.4"}</p>
+     */
+    private static native String opencc_version_string();
+
+    /**
      * Creates a new native OpenCC instance.
      */
     private native long opencc_new();
@@ -152,6 +170,33 @@ public class OpenccWrapper implements AutoCloseable {
     // ------------------------------------------------------------------------
     // Public methods
     // ------------------------------------------------------------------------
+
+    /**
+     * Returns the native OpenCC-FMMSEG C ABI version number.
+     *
+     * <p>This value is intended for runtime compatibility checks.
+     * It only changes when the native C ABI is broken.</p>
+     *
+     * @return the native C ABI version number
+     */
+    public static int getAbiNumber() {
+        return opencc_abi_number();
+    }
+
+    /**
+     * Returns the native OpenCC-FMMSEG version string.
+     *
+     * <p>The returned string is owned by the native library and is valid
+     * for the lifetime of the process.</p>
+     *
+     * <p>Example: {@code "0.8.4"}</p>
+     *
+     * @return the native OpenCC-FMMSEG version string
+     */
+    public static String getVersionString() {
+        String v = opencc_version_string();
+        return v != null ? v : "";
+    }
 
     /**
      * Converts the given input string using a specified configuration.

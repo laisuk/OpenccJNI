@@ -9,6 +9,22 @@ extern "C" {
 #endif
 /*
  * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_abi_number
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1abi_1number
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_version_string
+ * Signature: ()Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1version_1string
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     openccjni_OpenccWrapper
  * Method:    opencc_new
  * Signature: ()J
  */
