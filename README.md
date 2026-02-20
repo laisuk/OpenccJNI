@@ -37,7 +37,7 @@ conversion. It ships with a Java API and loads a native library at runtime.
 
 ```kotlin
 dependencies {
-    implementation("io.github.laisuk:openccjni:1.0.3")
+    implementation("io.github.laisuk:openccjni:1.2.0")
 }
 ```
 
@@ -48,7 +48,7 @@ dependencies {
 <dependency>
     <groupId>io.github.laisuk</groupId>
     <artifactId>openccjni</artifactId>
-    <version>1.0.3</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -165,6 +165,7 @@ Default resolution order used by `OpenCC`:
    /openccjni/natives/windows-x86_64/OpenccWrapper.dll
    /openccjni/natives/linux-x86_64/libOpenccWrapper.so
    /openccjni/natives/macos-arm64/libOpenccWrapper.dylib
+   /openccjni/natives/macos-x86_64/libOpenccWrapper.dylib
    ```
 
 `NativeLibLoader` is still available for advanced/manual loading scenarios, but **not required** for typical usage.
@@ -187,7 +188,7 @@ Default resolution order used by `OpenCC`:
 
 ```bash
 # From the Java source root; outputs a JNI header for OpenccWrapper bindings
-javac -h . src/main/java/openccjni/OpenccWrapper.java
+javac -h . src/main/java/openccjni/OpenccWrapper.java src/main/java/openccjni/OpenccConfig.java
 ```
 
 This produces a header like `openccjni_OpenccWrapper.h` that your C/C++ file includes.
@@ -202,19 +203,21 @@ This produces a header like `openccjni_OpenccWrapper.h` that your C/C++ file inc
 g++ -shared -O2 -std=c++17 -o OpenccWrapper.dll OpenccWrapper.cpp ^
   -I . ^
   -I "C:\Java\zulu17\include" -I "C:\Java\zulu17\include\win32" ^
-  -L . -lopencc_fmmseg_capi
+  -L . -lopencc_fmmseg_capi ^
+  -static-libstdc++ -static-libgcc ^
+  -s
 ```
 
 **Linux (x86_64)**
 
 ```bash
-g++ -shared -fPIC -O2 -std=c++17 -o libOpenccWrapper.so OpenccWrapper.cpp   -I . -I "${JAVA_HOME}/include" -I "${JAVA_HOME}/include/linux"   -L . -lopencc_fmmseg_capi
+g++ -shared -fPIC -O2 -std=c++17 -o libOpenccWrapper.so OpenccWrapper.cpp   -I . -I "${JAVA_HOME}/include" -I "${JAVA_HOME}/include/linux" -L . -lopencc_fmmseg_capi -Wl,-rpath='$ORIGIN' -Wl,--enable-new-dtags
 ```
 
 **macOS (arm64/x86_64)**
 
 ```bash
-clang++ -shared -fPIC -O2 -std=c++17 -o libOpenccWrapper.dylib OpenccWrapper.cpp   -I . -I "${JAVA_HOME}/include" -I "${JAVA_HOME}/include/darwin"   -L . -lopencc_fmmseg_capi
+clang++ -shared -fPIC -O2 -std=c++17 -o libOpenccWrapper.dylib OpenccWrapper.cpp   -I . -I "${JAVA_HOME}/include" -I "${JAVA_HOME}/include/darwin" -L . -lopencc_fmmseg_capi -Wl,-rpath,@loader_path -Wl,-install_name,@rpath/libOpenccWrapper.dylib
 ```
 
 Place the resulting native next to the JAR or embed it under `/openccjni/natives/{os}-{arch}/...` in the JAR.
@@ -279,6 +282,7 @@ OpenCC.fromConfig(String config)
 // One-off conversion
 OpenCC.convert(String input, String config)
 OpenCC.convert(String input, String config, boolean punctuation)
+OpenCC.convert(String input, OpenccConfig configId, boolean punctuation)
 
 // Check for Traditional/Simplified Chinese characters
 // Returns: 1 - Traditional, 2 - Simplified, 0 - Others
@@ -299,16 +303,17 @@ OpenCC.setLastError(String err)
 // Constructors
 new OpenCC()                   // defaults to "s2t"
 new OpenCC(String config)      // uses given config (fallback to "s2t" if invalid)
+new OpenCC(OpenccConfig configId)      // uses given configId (fallback to OpenccConfig.S2T if invalid)
 
 // Conversion
 cc.convert(String input)
 cc.convert(String input, boolean punctuation)
 
 // Config management
-cc.getConfig() -> String
+cc.getConfig() → String
+cc.getConfigId() → OpenccConfig
 cc.setConfig(String config)
-
-
+cc.setConfig(OpenccConfig configId)
 ```
 
 ### Supported Configurations
@@ -417,6 +422,38 @@ Convert Office documents using OpenccJNI
 - `--in-enc` / `--out-enc`: Specify encoding (e.g. `GBK`, `BIG5`, `UTF-8`).
 - `--format`: Force document format (e.g., `docx`, `epub`).
 - `--list-configs`: Show supported OpenCC configs.
+
+---
+
+### PDF Document Conversion:
+
+Supported **Text-Embedded PDF** document only.
+
+```bash
+bin/openccjni-cli.bat pdf -c s2t -p -i book.pdf -o book_converted.txt --relow
+```
+
+```bash
+bin/openccjni-cli pdf --help 
+Usage: openccjni-cli pdf [-ehHprV] [--compact] [-c=<conversion>] -i=<file>
+                         [-o=<file>]
+Extract PDF text, optionally reflow CJK paragraphs, then convert with
+OpenccJNI                                                                                                                                                        
+  -c, --config=<conversion>
+                        OpenCC conversion configuration (e.g. s2t, t2s, s2tw,
+                          t2hk, t2jp, ...)
+      --compact         Compact / tighten paragraph gaps after reflow (default:
+                          false)
+  -e, --extract         Extract text from PDF document only (default: false)
+  -h, --help            Show this help message and exit.
+  -H, --header          Insert per-page header markers into extracted text
+  -i, --input=<file>    Input PDF file
+  -o, --output=<file>   Output text file (UTF-8). If omitted, '<name>_converted.
+                          txt' is used next to input.
+  -p, --punct           Enable punctuation conversion (default: false)
+  -r, --reflow          Reflow CJK paragraphs after extraction (default: false)
+  -V, --version         Print version information and exit.
+```
 
 ---
 

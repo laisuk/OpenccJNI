@@ -6,16 +6,17 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.0.4] - 2026-01-08
+## [1.2.0] - 2026-02-21
 
 ### Added
 - Added PDF file type supported as input in `openccjni-cli` subcommand `pdf`
-- Set OpenccConfig as single source of truth for OpenccJNI configuration.
+- Set `OpenccConfig` as single source of truth for OpenccJNI configuration.
 
 ### Changed
 - Refactored `OfficeHelper` to include a core `byte[]`-based `convert()` API for in-memory document processing.
 - Updated conversion result handling: introduced unified abstract `Result` base class with concrete `FileResult` and `MemoryResult` subtypes.
 - Ensured backward compatibility: legacy `Result` return type remains valid and unchanged for existing users.
+- Updated `opencc-fmmseg-capi` to v0.9.0
 
 ---
 
