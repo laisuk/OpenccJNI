@@ -1,4 +1,4 @@
-name: Build OpenccWrapper natives
+name: Build OpenccWrapper natives and release
 
 on:
   push:
@@ -20,6 +20,7 @@ env:
   # Link against the CAPI that is shipped under resources
   LINUX_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-x86_64
   MACOS_ARM64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-arm64
+  MACOS_X86_64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-x86_64
 
   # Library name for -l<name> (maps to libopencc_fmmseg_capi.{so,dylib})
   CAPI_LIB_NAME: opencc_fmmseg_capi
@@ -77,7 +78,7 @@ jobs:
 
   macos_arm64:
     name: macOS arm64 .dylib
-    runs-on: macos-14  # Apple Silicon
+    runs-on: macos-latest  # Apple Silicon
     steps:
       - uses: actions/checkout@v4
         with:
@@ -118,6 +119,51 @@ jobs:
         with:
           name: OpenccWrapper-macos-arm64
           path: build/macos-arm64/libOpenccWrapper.dylib
+          if-no-files-found: error
+
+  macos_x86_64:
+    name: macOS x86_64 .dylib
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Show tree for sanity
+        run: |
+          ls -la openccjni/src/main/java/openccjni || true
+          ls -la openccjni/src/main/resources/openccjni/natives/macos-x86_64 || true
+
+      - name: Generate JNI header (optional)
+        run: |
+          javac -h . ${{ env.JAVA_SRC_CLASS }}
+
+      - name: Build libOpenccWrapper.dylib
+        run: |
+          test -f "${{ env.MACOS_X86_64_LIB_DIR }}/libopencc_fmmseg_capi.dylib" || (echo "Missing CAPI at ${{ env.MACOS_X86_64_LIB_DIR }}/libopencc_fmmseg_capi.dylib" && exit 1)
+          mkdir -p build/macos-x86_64
+          clang++ -shared -fPIC -O2 -std=c++17 \
+            -o build/macos-x86_64/libOpenccWrapper.dylib \
+            "${{ env.CPP_SRC }}" \
+            -I . \
+            -I "${JAVA_HOME}/include" \
+            -I "${JAVA_HOME}/include/darwin" \
+            -I "${{ env.CAPI_INCLUDE }}" \
+            -L "${{ env.MACOS_X86_64_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
+            -Wl,-rpath,@loader_path
+          file build/macos-x86_64/libOpenccWrapper.dylib
+
+      - name: Upload artifact (macOS x86_64 .dylib)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenccWrapper-macos-x86_64
+          path: build/macos-x86_64/libOpenccWrapper.dylib
           if-no-files-found: error
 
   windows_collect:
@@ -178,7 +224,7 @@ jobs:
 
   publish_release:
     name: Create GitHub release (auto prerelease if dashed tag)
-    needs: [ linux, macos_arm64, windows_collect, build_jar ]
+    needs: [ linux, macos_arm64, macos_x86_64, windows_collect, build_jar ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -201,47 +247,58 @@ jobs:
           echo "Artifacts tree:"
           find artifacts -maxdepth 3 -type f -print | sed 's/^/ - /' || true
 
-          # Locate wrappers from artifacts (first match wins)
+          # Locate wrappers from artifacts (first match wins per-arch)
           LINUX_SO="$(find artifacts -type f -name 'libOpenccWrapper.so' -print -quit || true)"
-          MACOS_DYLIB="$(find artifacts -type f -name 'libOpenccWrapper.dylib' -print -quit || true)"
+          MACOS_ARM64_DYLIB="$(find artifacts -type f -path '*macos-arm64*' -name 'libOpenccWrapper.dylib' -print -quit || true)"
+          MACOS_X86_64_DYLIB="$(find artifacts -type f -path '*macos-x86_64*' -name 'libOpenccWrapper.dylib' -print -quit || true)"
           WIN_DLL="$(find artifacts -type f -name 'OpenccWrapper.dll' -print -quit || true)"
-
+        
           # Fallback to repo resources if any are missing
-          [ -z "${LINUX_SO}" ]   && [ -f openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so ] \
-                                 && LINUX_SO=openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so
-          [ -z "${MACOS_DYLIB}" ] && [ -f openccjni/src/main/resources/openccjni/natives/macos-arm64/libOpenccWrapper.dylib ] \
-                                  && MACOS_DYLIB=openccjni/src/main/resources/openccjni/natives/macos-arm64/libOpenccWrapper.dylib
-          [ -z "${WIN_DLL}" ]    && [ -f openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll ] \
-                                 && WIN_DLL=openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll
-
+          [ -z "${LINUX_SO}" ] && [ -f openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so ] \
+            && LINUX_SO=openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so
+          
+          [ -z "${MACOS_ARM64_DYLIB}" ] && [ -f openccjni/src/main/resources/openccjni/natives/macos-arm64/libOpenccWrapper.dylib ] \
+            && MACOS_ARM64_DYLIB=openccjni/src/main/resources/openccjni/natives/macos-arm64/libOpenccWrapper.dylib
+          
+          [ -z "${MACOS_X86_64_DYLIB}" ] && [ -f openccjni/src/main/resources/openccjni/natives/macos-x86_64/libOpenccWrapper.dylib ] \
+            && MACOS_X86_64_DYLIB=openccjni/src/main/resources/openccjni/natives/macos-x86_64/libOpenccWrapper.dylib
+          
+          [ -z "${WIN_DLL}" ] && [ -f openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll ] \
+            && WIN_DLL=openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll
+          
           echo "Using:"
-          echo " - linux so : ${LINUX_SO:-<missing>}"
-          echo " - macOS dylib: ${MACOS_DYLIB:-<missing>}"
-          echo " - windows dll: ${WIN_DLL:-<missing>}"
+          echo " - linux so        : ${LINUX_SO:-<missing>}"
+          echo " - macOS arm64 dylib: ${MACOS_ARM64_DYLIB:-<missing>}"
+          echo " - macOS x86_64 dylib: ${MACOS_X86_64_DYLIB:-<missing>}"
+          echo " - windows dll     : ${WIN_DLL:-<missing>}"
+          
           [ -n "${LINUX_SO:-}" ] || { echo "ERROR: Linux wrapper missing"; exit 1; }
-          [ -n "${MACOS_DYLIB:-}" ] || { echo "ERROR: macOS wrapper missing"; exit 1; }
+          [ -n "${MACOS_ARM64_DYLIB:-}" ] || { echo "ERROR: macOS arm64 wrapper missing"; exit 1; }
+          [ -n "${MACOS_X86_64_DYLIB:-}" ] || { echo "ERROR: macOS x86_64 wrapper missing"; exit 1; }
           [ -n "${WIN_DLL:-}" ] || { echo "ERROR: Windows wrapper missing"; exit 1; }
-
+          
           # Stage bundles
-          mkdir -p bundle/linux-x86_64 bundle/macos-arm64 bundle/windows-x86_64
-          cp "${LINUX_SO}"    bundle/linux-x86_64/
-          cp "${MACOS_DYLIB}" bundle/macos-arm64/
-          cp "${WIN_DLL}"     bundle/windows-x86_64/
-
+          mkdir -p bundle/linux-x86_64 bundle/macos-arm64 bundle/macos-x86_64 bundle/windows-x86_64
+          cp "${LINUX_SO}"           bundle/linux-x86_64/
+          cp "${MACOS_ARM64_DYLIB}"  bundle/macos-arm64/
+          cp "${MACOS_X86_64_DYLIB}" bundle/macos-x86_64/
+          cp "${WIN_DLL}"            bundle/windows-x86_64/
+            
           # Include CAPI from resources
-          cp openccjni/src/main/resources/openccjni/natives/linux-x86_64/libopencc_fmmseg_capi.so     bundle/linux-x86_64/
-          cp openccjni/src/main/resources/openccjni/natives/macos-arm64/libopencc_fmmseg_capi.dylib   bundle/macos-arm64/
-          cp openccjni/src/main/resources/openccjni/natives/windows-x86_64/opencc_fmmseg_capi.dll     bundle/windows-x86_64/
-
+          cp openccjni/src/main/resources/openccjni/natives/linux-x86_64/libopencc_fmmseg_capi.so      bundle/linux-x86_64/
+          cp openccjni/src/main/resources/openccjni/natives/macos-arm64/libopencc_fmmseg_capi.dylib    bundle/macos-arm64/
+          cp openccjni/src/main/resources/openccjni/natives/macos-x86_64/libopencc_fmmseg_capi.dylib   bundle/macos-x86_64/
+          cp openccjni/src/main/resources/openccjni/natives/windows-x86_64/opencc_fmmseg_capi.dll      bundle/windows-x86_64/
+          
           # Tiny README per bundle
-          for P in linux-x86_64 macos-arm64 windows-x86_64; do
+          for P in linux-x86_64 macos-arm64 macos-x86_64 windows-x86_64; do
             cat > "bundle/$P/README.txt" <<EOF
           OpenccJNI natives for ${P} (${TAG})
 
           Contents:
             - Wrapper: OpenccWrapper.{so|dylib|dll}
             - CAPI:    opencc_fmmseg_capi.{so|dylib|dll}
-          
+
           Place both files in the same directory at runtime.
           If embedding in JAR, use: /openccjni/natives/${P}/
           EOF
@@ -252,6 +309,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           mkdir -p dist
           (cd bundle/linux-x86_64  && zip -9r "../OpenccJNI-natives-${TAG}-linux-x86_64.zip" .)
+          (cd bundle/macos-arm64   && zip -9r "../OpenccJNI-natives-${TAG}-macos-arm64.zip" .)
           (cd bundle/macos-arm64   && zip -9r "../OpenccJNI-natives-${TAG}-macos-arm64.zip" .)
           (cd bundle/windows-x86_64&& zip -9r "../OpenccJNI-natives-${TAG}-windows-x86_64.zip" .)
           mv bundle/*.zip dist/
@@ -274,5 +332,6 @@ jobs:
           files: |
             dist/OpenccJNI-natives-${{ github.ref_name }}-linux-x86_64.zip
             dist/OpenccJNI-natives-${{ github.ref_name }}-macos-arm64.zip
+            dist/OpenccJNI-natives-${{ github.ref_name }}-macos-x86_64.zip
             dist/OpenccJNI-natives-${{ github.ref_name }}-windows-x86_64.zip
             dist/jars/openccjni-*.jar
