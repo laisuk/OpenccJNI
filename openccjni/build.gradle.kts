@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.laisuk"
-version = "1.0.4"
+version = "1.2.0"
 
 repositories {
     mavenCentral()
