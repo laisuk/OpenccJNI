@@ -26,7 +26,7 @@ env:
   CAPI_LIB_NAME: opencc_fmmseg_capi
 
 jobs:
-  native_build:
+  build_natives:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runs_on }}
     strategy:
@@ -228,7 +228,7 @@ jobs:
       - name: Upload build artifacts (jars + distributions)
         uses: actions/upload-artifact@v4
         with:
-          name: java-artifacts
+          name: java-packages
           path: |
             openccjni/libs/**
             openccjni-cli/libs/**
@@ -237,7 +237,7 @@ jobs:
 
   publish_release:
     name: Create GitHub release (auto prerelease if dashed tag)
-    needs: [ native_build, windows_collect, build_jar ]
+    needs: [ build_natives, windows_collect, build_jar ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -337,15 +337,15 @@ jobs:
           set -euo pipefail
           mkdir -p dist/openccjni/libs dist/openccjni-cli/libs dist/openccjni-cli/distributions
 
-          # From downloaded artifact "java-artifacts"
-          if compgen -G "artifacts/java-artifacts/openccjni/libs/*" > /dev/null; then
-            cp -v artifacts/java-artifacts/openccjni/libs/* dist/openccjni/libs/
+          # From downloaded artifact "java-packages"
+          if compgen -G "artifacts/java-packages/openccjni/libs/*" > /dev/null; then
+            cp -v artifacts/java-packages/openccjni/libs/* dist/openccjni/libs/
           fi
-          if compgen -G "artifacts/java-artifacts/openccjni-cli/libs/*" > /dev/null; then
-            cp -v artifacts/java-artifacts/openccjni-cli/libs/* dist/openccjni-cli/libs/
+          if compgen -G "artifacts/java-packages/openccjni-cli/libs/*" > /dev/null; then
+            cp -v artifacts/java-packages/openccjni-cli/libs/* dist/openccjni-cli/libs/
           fi
-          if compgen -G "artifacts/java-artifacts/openccjni-cli/distributions/*" > /dev/null; then
-            cp -v artifacts/java-artifacts/openccjni-cli/distributions/* dist/openccjni-cli/distributions/
+          if compgen -G "artifacts/java-packages/openccjni-cli/distributions/*" > /dev/null; then
+            cp -v artifacts/java-packages/openccjni-cli/distributions/* dist/openccjni-cli/distributions/
           fi
 
           echo "== dist tree =="
