@@ -18,6 +18,7 @@ env:
   # Link against the CAPI that is shipped under resources
   LINUX_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-x86_64
   MACOS_ARM64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-arm64
+  MACOS_X86_64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-x86_64
   WINDOWS_X86_64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/windows-x86_64
 
   # Library name for -l<name>
@@ -78,7 +79,7 @@ jobs:
 
   macos_arm64:
     name: macOS arm64 (.dylib)
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -120,6 +121,52 @@ jobs:
         with:
           name: OpenccJNI-natives-macos-arm64
           path: artifacts/macos-arm64/OpenccJNI-natives-macos-arm64.zip
+          if-no-files-found: error
+
+  macos_x86_64:
+    name: macOS x86_64 (.dylib)
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Generate JNI header (optional)
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -h . ${{ env.JAVA_SRC_CLASS }}
+          test -f openccjni_OpenccWrapper.h || (echo "JNI header not generated" && exit 1)
+
+      - name: Build libOpenccWrapper.dylib (Intel)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${{ env.MACOS_X86_64_LIB_DIR }}/lib${{ env.CAPI_LIB_NAME }}.dylib" || (echo "Missing CAPI .dylib" && exit 1)
+
+          mkdir -p artifacts/macos-x86_64
+
+          clang++ -shared -fPIC -O2 -std=c++17 \
+            -o artifacts/macos-x86_64/libOpenccWrapper.dylib \
+            "${{ env.CPP_SRC }}" \
+            -I . \
+            -I "${JAVA_HOME}/include" \
+            -I "${JAVA_HOME}/include/darwin" \
+            -I "${{ env.CAPI_INCLUDE }}" \
+            -L "${{ env.MACOS_X86_64_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
+            -Wl,-rpath,@loader_path
+
+          (cd artifacts/macos-x86_64 && zip -9 OpenccJNI-natives-macos-x86_64.zip libOpenccWrapper.dylib)
+
+      - name: Upload artifact (macOS x86_64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenccJNI-natives-macos-x86_64
+          path: artifacts/macos-x86_64/OpenccJNI-natives-macos-x86_64.zip
           if-no-files-found: error
 
   windows_x86_64_mingw:
@@ -173,16 +220,16 @@ jobs:
           # x86_64-w64-mingw32-dlltool -d "${{ env.CAPI_LIB_NAME }}.def" -l "lib${{ env.CAPI_LIB_NAME }}.dll.a"
           # Create import lib for dynamic linking (needs exports -> .def)
           command -v gendef >/dev/null 2>&1 || (echo "gendef not found; install mingw-w64-tools" && exit 1)
-  
+          
           gendef opencc_fmmseg_capi.dll
           # produces: opencc_fmmseg_capi.def
-  
+          
           x86_64-w64-mingw32-dlltool -d opencc_fmmseg_capi.def -l libopencc_fmmseg_capi.dll.a
-  
+          
           ls -la
           ls -la libopencc_fmmseg_capi.dll.a
           x86_64-w64-mingw32-nm -g libopencc_fmmseg_capi.dll.a | head  
-  
+          
           # Build wrapper: CAPI dynamic, runtimes static
           x86_64-w64-mingw32-g++ -shared -O2 -std=c++17 \
             -D_WIN32_WINNT=0x0601 \

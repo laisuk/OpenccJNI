@@ -147,9 +147,9 @@ public class OpenCCTests {
     @Test
     void testConfigEnumRoundTrip() {
         // ✅ Case-insensitive matching
-        assertEquals(OpenccConfig.S2Twp, OpenccConfig.tryParse("s2twp"));
-        assertEquals(OpenccConfig.S2Twp, OpenccConfig.tryParse("S2Twp"));
-        assertEquals(OpenccConfig.S2Twp, OpenccConfig.tryParse("S2TWP"));
+        assertEquals(OpenccConfig.S2TWP, OpenccConfig.tryParse("s2twp"));
+        assertEquals(OpenccConfig.S2TWP, OpenccConfig.tryParse("S2Twp"));
+        assertEquals(OpenccConfig.S2TWP, OpenccConfig.tryParse("S2TWP"));
         // ✅ Round-trip consistency
         for (OpenccConfig cfg : OpenccConfig.values()) {
             assertEquals(cfg, OpenccConfig.tryParse(cfg.toCanonicalName()));
