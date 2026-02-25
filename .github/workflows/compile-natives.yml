@@ -26,8 +26,9 @@ env:
 
 jobs:
   linux:
-    name: Linux x86_64 (.so)
+    name: Linux x86_64 (.so, manylinux2014)
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -37,38 +38,63 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential zip
-
-      - name: Generate JNI header (optional)
+      - name: Generate JNI header
         shell: bash
         run: |
           set -euo pipefail
           javac -h . ${{ env.JAVA_SRC_CLASS }}
-          test -f openccjni_OpenccWrapper.h || (echo "JNI header not generated" && exit 1)
+          test -f openccjni_OpenccWrapper.h
 
-      - name: Build libOpenccWrapper.so
+      - name: Build libOpenccWrapper.so (manylinux2014)
         shell: bash
         run: |
           set -euo pipefail
-          test -f "${{ env.LINUX_LIB_DIR }}/lib${{ env.CAPI_LIB_NAME }}.so" || (echo "Missing CAPI .so" && exit 1)
 
-          mkdir -p artifacts/linux-x86_64
+          IMAGE="quay.io/pypa/manylinux2014_x86_64:latest"
 
-          g++ -shared -fPIC -O2 -std=c++17 \
-            -o artifacts/linux-x86_64/libOpenccWrapper.so \
-            "${{ env.CPP_SRC }}" \
-            -I . \
-            -I "${JAVA_HOME}/include" \
-            -I "${JAVA_HOME}/include/linux" \
-            -I "${{ env.CAPI_INCLUDE }}" \
-            -L "${{ env.LINUX_LIB_DIR }}" -l${{ env.CAPI_LIB_NAME }} \
-            -Wl,-rpath,'$ORIGIN'
+          docker run --rm \
+            --entrypoint /bin/bash \
+            -v "${GITHUB_WORKSPACE}:/io" -w /io \
+            "${IMAGE}" -lc '
 
-          # Zip wrapper only (CAPI already lives in resources in your repo)
-          (cd artifacts/linux-x86_64 && zip -9 OpenccJNI-natives-linux-x86_64.zip libOpenccWrapper.so)
+            set -euxo pipefail
+
+            # Prefer devtoolset gcc
+            if [ -d /opt/rh/devtoolset-11/root/usr/bin ]; then
+              export PATH="/opt/rh/devtoolset-11/root/usr/bin:$PATH"
+            elif [ -d /opt/rh/devtoolset-10/root/usr/bin ]; then
+              export PATH="/opt/rh/devtoolset-10/root/usr/bin:$PATH"
+            fi
+
+            gcc --version
+            g++ --version
+
+            mkdir -p artifacts/linux-x86_64
+
+            g++ -shared -fPIC -O2 -std=c++17 \
+              -o artifacts/linux-x86_64/libOpenccWrapper.so \
+              "${CPP_SRC}" \
+              -I . \
+              -I "${JAVA_HOME}/include" \
+              -I "${JAVA_HOME}/include/linux" \
+              -I "${CAPI_INCLUDE}" \
+              -L "${LINUX_LIB_DIR}" -l${CAPI_LIB_NAME} \
+              -Wl,-rpath,'\''$ORIGIN'\''
+
+            # Compatibility check
+            echo "GLIBC:"
+            readelf -sW artifacts/linux-x86_64/libOpenccWrapper.so \
+              | grep -o "GLIBC_[0-9.]*" | sort -V | tail -n 1 || true
+
+            echo "GLIBCXX:"
+            strings -a artifacts/linux-x86_64/libOpenccWrapper.so \
+              | grep -E "GLIBCXX_|CXXABI_" | sort -V | tail -n 3 || true
+          '
+
+      - name: Zip wrapper
+        run: |
+          cd artifacts/linux-x86_64
+          zip -9 OpenccJNI-natives-linux-x86_64.zip libOpenccWrapper.so
 
       - name: Upload artifact (Linux)
         uses: actions/upload-artifact@v4
