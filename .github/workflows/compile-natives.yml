@@ -52,6 +52,7 @@ jobs:
           IMAGE="quay.io/pypa/manylinux2014_x86_64:latest"
 
           docker run --rm \
+            --user $(id -u):$(id -g) \
             --entrypoint /bin/bash \
             -v "${GITHUB_WORKSPACE}:/io" -w /io \
             -v "${JAVA_HOME}:${JAVA_HOME}:ro" \
