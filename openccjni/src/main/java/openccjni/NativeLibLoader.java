@@ -248,17 +248,28 @@ public final class NativeLibLoader {
     }
 
     private static List<String> getNativeStrings(String os, String arch, String mapped) {
-        final List<String> candidates = new ArrayList<>(2);
+        final List<String> candidates = new ArrayList<>(4);
+
+        // macOS: keep existing dual naming
         if ("macos".equals(os)) {
-            if ("arm64".equals(arch) || "aarch64".equals(arch)) {
+            if ("aarch64".equals(arch) || "arm64".equals(arch)) {
                 candidates.add(String.format("/openccjni/natives/macos-arm64/%s", mapped));
                 candidates.add(String.format("/openccjni/natives/macos-aarch64/%s", mapped));
-            } else {
-                candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
+                return candidates;
             }
-        } else {
             candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
+            return candidates;
         }
+
+        // Linux: allow both linux-aarch64 and linux-arm64 layouts (people use both)
+        if ("linux".equals(os) && "aarch64".equals(arch)) {
+            candidates.add(String.format("/openccjni/natives/linux-aarch64/%s", mapped));
+            candidates.add(String.format("/openccjni/natives/linux-arm64/%s", mapped));
+            return candidates;
+        }
+
+        // default: {os}-{arch}
+        candidates.add(String.format("/openccjni/natives/%s-%s/%s", os, arch, mapped));
         return candidates;
     }
 
@@ -288,6 +299,8 @@ public final class NativeLibLoader {
 
     static String detectArch() {
         String arch = System.getProperty("os.arch", "unknown").toLowerCase(Locale.ROOT);
+
+        // Normalize common aliases
         arch = arch
                 .replace("amd64", "x86_64")
                 .replace("x86-64", "x86_64")
@@ -296,7 +309,9 @@ public final class NativeLibLoader {
                 .replace("i486", "x86")
                 .replace("i586", "x86")
                 .replace("i686", "x86")
+                // JVM often reports "aarch64", sometimes "arm64"
                 .replace("arm64", "aarch64");
+
         if (arch.contains("aarch64")) return "aarch64";
         if (arch.contains("x86_64")) return "x86_64";
         if (arch.matches(".*\\bx86\\b.*")) return "x86";

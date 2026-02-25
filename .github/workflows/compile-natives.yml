@@ -17,6 +17,8 @@ env:
 
   # Link against the CAPI that is shipped under resources
   LINUX_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-x86_64
+  # Linux arm64 (aarch64)
+  LINUX_ARM64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-aarch64
   MACOS_ARM64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-arm64
   MACOS_X86_64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-x86_64
   WINDOWS_X86_64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/windows-x86_64
@@ -108,6 +110,91 @@ jobs:
         with:
           name: OpenccJNI-natives-linux-x86_64
           path: artifacts/linux-x86_64/OpenccJNI-natives-linux-x86_64.zip
+          if-no-files-found: error
+
+  linux_arm64:
+    name: Linux aarch64 (.so, manylinux2014)
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Generate JNI header
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -h . ${{ env.JAVA_SRC_CLASS }}
+          test -f openccjni_OpenccWrapper.h
+
+      - name: Build libOpenccWrapper.so (manylinux2014 aarch64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="quay.io/pypa/manylinux2014_aarch64:latest"
+
+          docker run --rm \
+            --user $(id -u):$(id -g) \
+            --entrypoint /bin/bash \
+            -v "${GITHUB_WORKSPACE}:/io" -w /io \
+            -v "${JAVA_HOME}:${JAVA_HOME}:ro" \
+            -e JAVA_HOME="${JAVA_HOME}" \
+            -e CPP_SRC="${{ env.CPP_SRC }}" \
+            -e CAPI_INCLUDE="${{ env.CAPI_INCLUDE }}" \
+            -e LINUX_LIB_DIR="${{ env.LINUX_ARM64_LIB_DIR }}" \
+            -e CAPI_LIB_NAME="${{ env.CAPI_LIB_NAME }}" \
+            "${IMAGE}" -lc '
+              set -euxo pipefail
+
+              # Prefer devtoolset gcc
+              if [ -d /opt/rh/devtoolset-11/root/usr/bin ]; then
+                export PATH="/opt/rh/devtoolset-11/root/usr/bin:$PATH"
+              elif [ -d /opt/rh/devtoolset-10/root/usr/bin ]; then
+                export PATH="/opt/rh/devtoolset-10/root/usr/bin:$PATH"
+              fi
+
+              gcc --version
+              g++ --version
+
+              # Ensure CAPI is present (linked from resources)
+              test -f "${LINUX_LIB_DIR}/lib${CAPI_LIB_NAME}.so" || (echo "Missing CAPI .so" && exit 1)
+
+              mkdir -p artifacts/linux-aarch64
+
+              g++ -shared -fPIC -O2 -std=c++17 \
+                -o artifacts/linux-aarch64/libOpenccWrapper.so \
+                "${CPP_SRC}" \
+                -I . \
+                -I "${JAVA_HOME}/include" \
+                -I "${JAVA_HOME}/include/linux" \
+                -I "${CAPI_INCLUDE}" \
+                -L "${LINUX_LIB_DIR}" -l${CAPI_LIB_NAME} \
+                -Wl,-rpath,'\''$ORIGIN'\''
+
+              echo "GLIBC:"
+              readelf -sW artifacts/linux-aarch64/libOpenccWrapper.so \
+                | grep -o "GLIBC_[0-9.]*" | sort -V | tail -n 1 || true
+
+              echo "GLIBCXX:"
+              strings -a artifacts/linux-aarch64/libOpenccWrapper.so \
+                | grep -E "GLIBCXX_|CXXABI_" | sort -V | tail -n 3 || true
+            '
+
+      - name: Zip wrapper
+        run: |
+          cd artifacts/linux-aarch64
+          zip -9 OpenccJNI-natives-linux-aarch64.zip libOpenccWrapper.so
+
+      - name: Upload artifact (Linux aarch64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenccJNI-natives-linux-aarch64
+          path: artifacts/linux-aarch64/OpenccJNI-natives-linux-aarch64.zip
           if-no-files-found: error
 
   macos_arm64:
