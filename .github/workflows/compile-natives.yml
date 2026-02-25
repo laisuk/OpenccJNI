@@ -49,47 +49,53 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           IMAGE="quay.io/pypa/manylinux2014_x86_64:latest"
 
           docker run --rm \
             --entrypoint /bin/bash \
             -v "${GITHUB_WORKSPACE}:/io" -w /io \
+            -v "${JAVA_HOME}:${JAVA_HOME}:ro" \
+            -e JAVA_HOME="${JAVA_HOME}" \
+            -e CPP_SRC="${{ env.CPP_SRC }}" \
+            -e CAPI_INCLUDE="${{ env.CAPI_INCLUDE }}" \
+            -e LINUX_LIB_DIR="${{ env.LINUX_LIB_DIR }}" \
+            -e CAPI_LIB_NAME="${{ env.CAPI_LIB_NAME }}" \
             "${IMAGE}" -lc '
+              set -euxo pipefail
 
-            set -euxo pipefail
+              # Prefer devtoolset gcc
+              if [ -d /opt/rh/devtoolset-11/root/usr/bin ]; then
+                export PATH="/opt/rh/devtoolset-11/root/usr/bin:$PATH"
+              elif [ -d /opt/rh/devtoolset-10/root/usr/bin ]; then
+                export PATH="/opt/rh/devtoolset-10/root/usr/bin:$PATH"
+              fi
 
-            # Prefer devtoolset gcc
-            if [ -d /opt/rh/devtoolset-11/root/usr/bin ]; then
-              export PATH="/opt/rh/devtoolset-11/root/usr/bin:$PATH"
-            elif [ -d /opt/rh/devtoolset-10/root/usr/bin ]; then
-              export PATH="/opt/rh/devtoolset-10/root/usr/bin:$PATH"
-            fi
+              gcc --version
+              g++ --version
 
-            gcc --version
-            g++ --version
+              # Ensure CAPI is present (linked from resources)
+              test -f "${LINUX_LIB_DIR}/lib${CAPI_LIB_NAME}.so" || (echo "Missing CAPI .so" && exit 1)
 
-            mkdir -p artifacts/linux-x86_64
+              mkdir -p artifacts/linux-x86_64
 
-            g++ -shared -fPIC -O2 -std=c++17 \
-              -o artifacts/linux-x86_64/libOpenccWrapper.so \
-              "${CPP_SRC}" \
-              -I . \
-              -I "${JAVA_HOME}/include" \
-              -I "${JAVA_HOME}/include/linux" \
-              -I "${CAPI_INCLUDE}" \
-              -L "${LINUX_LIB_DIR}" -l${CAPI_LIB_NAME} \
-              -Wl,-rpath,'\''$ORIGIN'\''
+              g++ -shared -fPIC -O2 -std=c++17 \
+                -o artifacts/linux-x86_64/libOpenccWrapper.so \
+                "${CPP_SRC}" \
+                -I . \
+                -I "${JAVA_HOME}/include" \
+                -I "${JAVA_HOME}/include/linux" \
+                -I "${CAPI_INCLUDE}" \
+                -L "${LINUX_LIB_DIR}" -l${CAPI_LIB_NAME} \
+                -Wl,-rpath,'\''$ORIGIN'\''
 
-            # Compatibility check
-            echo "GLIBC:"
-            readelf -sW artifacts/linux-x86_64/libOpenccWrapper.so \
-              | grep -o "GLIBC_[0-9.]*" | sort -V | tail -n 1 || true
+              echo "GLIBC:"
+              readelf -sW artifacts/linux-x86_64/libOpenccWrapper.so \
+                | grep -o "GLIBC_[0-9.]*" | sort -V | tail -n 1 || true
 
-            echo "GLIBCXX:"
-            strings -a artifacts/linux-x86_64/libOpenccWrapper.so \
-              | grep -E "GLIBCXX_|CXXABI_" | sort -V | tail -n 3 || true
-          '
+              echo "GLIBCXX:"
+              strings -a artifacts/linux-x86_64/libOpenccWrapper.so \
+                | grep -E "GLIBCXX_|CXXABI_" | sort -V | tail -n 3 || true
+            '
 
       - name: Zip wrapper
         run: |
