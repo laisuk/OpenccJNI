@@ -112,7 +112,7 @@ jobs:
           path: artifacts/linux-x86_64/OpenccJNI-natives-linux-x86_64.zip
           if-no-files-found: error
 
-  linux_arm64:
+  linux_aarch64:
     name: Linux aarch64 (.so, manylinux2014)
     runs-on: ubuntu-24.04-arm
 
@@ -137,7 +137,7 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE="quay.io/pypa/manylinux2014_aarch64:latest"
-
+          
           docker run --rm \
             --user $(id -u):$(id -g) \
             --entrypoint /bin/bash \
@@ -150,22 +150,21 @@ jobs:
             -e CAPI_LIB_NAME="${{ env.CAPI_LIB_NAME }}" \
             "${IMAGE}" -lc '
               set -euxo pipefail
-
+          
               # Prefer devtoolset gcc
               if [ -d /opt/rh/devtoolset-11/root/usr/bin ]; then
                 export PATH="/opt/rh/devtoolset-11/root/usr/bin:$PATH"
               elif [ -d /opt/rh/devtoolset-10/root/usr/bin ]; then
                 export PATH="/opt/rh/devtoolset-10/root/usr/bin:$PATH"
               fi
-
+          
               gcc --version
               g++ --version
-
-              # Ensure CAPI is present (linked from resources)
+          
               test -f "${LINUX_LIB_DIR}/lib${CAPI_LIB_NAME}.so" || (echo "Missing CAPI .so" && exit 1)
-
+          
               mkdir -p artifacts/linux-aarch64
-
+          
               g++ -shared -fPIC -O2 -std=c++17 \
                 -o artifacts/linux-aarch64/libOpenccWrapper.so \
                 "${CPP_SRC}" \
@@ -175,18 +174,15 @@ jobs:
                 -I "${CAPI_INCLUDE}" \
                 -L "${LINUX_LIB_DIR}" -l${CAPI_LIB_NAME} \
                 -Wl,-rpath,'\''$ORIGIN'\''
-
-              echo "GLIBC:"
+          
               readelf -sW artifacts/linux-aarch64/libOpenccWrapper.so \
                 | grep -o "GLIBC_[0-9.]*" | sort -V | tail -n 1 || true
-
-              echo "GLIBCXX:"
-              strings -a artifacts/linux-aarch64/libOpenccWrapper.so \
-                | grep -E "GLIBCXX_|CXXABI_" | sort -V | tail -n 3 || true
             '
 
       - name: Zip wrapper
+        shell: bash
         run: |
+          set -euo pipefail
           cd artifacts/linux-aarch64
           zip -9 OpenccJNI-natives-linux-aarch64.zip libOpenccWrapper.so
 
