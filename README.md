@@ -37,7 +37,7 @@ conversion. It ships with a Java API and loads a native library at runtime.
 
 ```kotlin
 dependencies {
-    implementation("io.github.laisuk:openccjni:1.2.0")
+    implementation("io.github.laisuk:openccjni:1.2.1")
 }
 ```
 
@@ -48,7 +48,7 @@ dependencies {
 <dependency>
     <groupId>io.github.laisuk</groupId>
     <artifactId>openccjni</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
 </dependency>
 ```
 
@@ -163,6 +163,7 @@ Default resolution order used by `OpenCC`:
    Examples:
    ```
    /openccjni/natives/windows-x86_64/OpenccWrapper.dll
+   /openccjni/natives/linux-aarch64/libOpenccWrapper.so
    /openccjni/natives/linux-x86_64/libOpenccWrapper.so
    /openccjni/natives/macos-arm64/libOpenccWrapper.dylib
    /openccjni/natives/macos-x86_64/libOpenccWrapper.dylib
@@ -238,7 +239,7 @@ Place the resulting native next to the JAR or embed it under `/openccjni/natives
 | OS      | Arch          | Notes                                  |
 |---------|---------------|----------------------------------------|
 | Windows | x86_64, x86*  | Win7+ works with compatible toolchains |
-| Linux   | x86_64        | glibc-based                            |
+| Linux   | x86_64, arm64 | glibc-based                            |
 | macOS   | arm64, x86_64 | Modern macOS with Clang toolchain      |
 
 \* 32-bit Windows builds are optional; use `i686` MinGW-w64 and a matching JDK.

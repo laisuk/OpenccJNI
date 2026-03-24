@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.1] - 2026-03-24
+
+### Changed
+
+- Updated `opencc-fmmseg-capi` native library to v0.9.1
+- Linux binaries are now built with manylinux2014 compatibility (glibc ≤ 2.17)
+
+---
+
 ## [1.2.0] - 2026-02-21
 
 ### Added
