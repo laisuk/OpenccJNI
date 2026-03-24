@@ -10,31 +10,30 @@ permissions:
   contents: read
 
 env:
-  # JNI sources live alongside Java in the openccjni package dir
   CPP_SRC: openccjni/src/main/java/openccjni/OpenccWrapper.cpp
   JAVA_SRC_CLASS: openccjni/src/main/java/openccjni/OpenccWrapper.java openccjni/src/main/java/openccjni/OpenccConfig.java
 
-  # C headers (generated + capi header) live with java sources
   CAPI_INCLUDE: openccjni/src/main/java/openccjni
 
-  # Link against the CAPI that is shipped under resources
-  LINUX_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-x86_64
+  LINUX_X86_64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-x86_64
+  LINUX_AARCH64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/linux-aarch64
   MACOS_ARM64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-arm64
   MACOS_X86_64_LIB_DIR: openccjni/src/main/resources/openccjni/natives/macos-x86_64
 
-  # Library name for -l<name> (maps to libopencc_fmmseg_capi.{so,dylib})
   CAPI_LIB_NAME: opencc_fmmseg_capi
 
 jobs:
   build_natives:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runs_on }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Linux x86_64 .so
+          - name: Linux x86_64 .so (manylinux2014)
             runs_on: ubuntu-latest
+            container: quay.io/pypa/manylinux2014_x86_64
             platform: linux-x86_64
             wrapper_out: build/linux-x86_64/libOpenccWrapper.so
             capi_dir: openccjni/src/main/resources/openccjni/natives/linux-x86_64
@@ -42,8 +41,19 @@ jobs:
             cc: g++
             java_os_include: linux
             extra_setup: |
-              sudo apt-get update
-              sudo apt-get install -y build-essential zip
+              yum install -y java-17-openjdk-devel gcc-c++ file zip findutils
+
+          - name: Linux aarch64 .so (manylinux2014)
+            runs_on: ubuntu-24.04-arm
+            container: quay.io/pypa/manylinux2014_aarch64
+            platform: linux-aarch64
+            wrapper_out: build/linux-aarch64/libOpenccWrapper.so
+            capi_dir: openccjni/src/main/resources/openccjni/natives/linux-aarch64
+            capi_file: libopencc_fmmseg_capi.so
+            cc: g++
+            java_os_include: linux
+            extra_setup: |
+              yum install -y java-17-openjdk-devel gcc-c++ file zip findutils
 
           - name: macOS arm64 .dylib
             runs_on: macos-latest
@@ -70,7 +80,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up Java 17 (for JNI headers)
+      - name: Set up Java 17 (non-Linux)
+        if: ${{ runner.os != 'Linux' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -78,7 +89,18 @@ jobs:
 
       - name: Install build tools (Linux only)
         if: ${{ runner.os == 'Linux' }}
-        run: ${{ matrix.extra_setup }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ${{ matrix.extra_setup }}
+
+          export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+
+          java -version
+          javac -version
+          g++ --version
+          file --version || true
 
       - name: Show tree for sanity
         shell: bash
@@ -89,6 +111,7 @@ jobs:
       - name: Generate JNI header (optional)
         shell: bash
         run: |
+          set -euo pipefail
           javac -h . ${{ env.JAVA_SRC_CLASS }}
 
       - name: Build wrapper
@@ -99,27 +122,42 @@ jobs:
 
           mkdir -p "$(dirname "${{ matrix.wrapper_out }}")"
 
-          "${{ matrix.cc }}" -shared -fPIC -O2 -std=c++17 \
-            -o "${{ matrix.wrapper_out }}" \
-            "${{ env.CPP_SRC }}" \
-            -I . \
-            -I "${JAVA_HOME}/include" \
-            -I "${JAVA_HOME}/include/${{ matrix.java_os_include }}" \
-            -I "${{ env.CAPI_INCLUDE }}" \
-            -L "${{ matrix.capi_dir }}" -l${{ env.CAPI_LIB_NAME }} \
-            -Wl,-rpath,'$ORIGIN' \
-            -Wl,-rpath,@loader_path || \
-          "${{ matrix.cc }}" -shared -fPIC -O2 -std=c++17 \
-            -o "${{ matrix.wrapper_out }}" \
-            "${{ env.CPP_SRC }}" \
-            -I . \
-            -I "${JAVA_HOME}/include" \
-            -I "${JAVA_HOME}/include/${{ matrix.java_os_include }}" \
-            -I "${{ env.CAPI_INCLUDE }}" \
-            -L "${{ matrix.capi_dir }}" -l${{ env.CAPI_LIB_NAME }} \
-            -Wl,-rpath,'$ORIGIN'
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            "${{ matrix.cc }}" -shared -fPIC -O2 -std=c++17 \
+              -o "${{ matrix.wrapper_out }}" \
+              "${{ env.CPP_SRC }}" \
+              -I . \
+              -I "${JAVA_HOME}/include" \
+              -I "${JAVA_HOME}/include/${{ matrix.java_os_include }}" \
+              -I "${{ env.CAPI_INCLUDE }}" \
+              -L "${{ matrix.capi_dir }}" -l${{ env.CAPI_LIB_NAME }} \
+              -Wl,-rpath,'$ORIGIN'
+          else
+            "${{ matrix.cc }}" -shared -fPIC -O2 -std=c++17 \
+              -o "${{ matrix.wrapper_out }}" \
+              "${{ env.CPP_SRC }}" \
+              -I . \
+              -I "${JAVA_HOME}/include" \
+              -I "${JAVA_HOME}/include/${{ matrix.java_os_include }}" \
+              -I "${{ env.CAPI_INCLUDE }}" \
+              -L "${{ matrix.capi_dir }}" -l${{ env.CAPI_LIB_NAME }} \
+              -Wl,-rpath,@loader_path
+          fi
 
           file "${{ matrix.wrapper_out }}" || true
+
+      - name: Verify manylinux GLIBC baseline (Linux only)
+        if: ${{ runner.os == 'Linux' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAX_GLIBC="$(readelf --version-info "${{ matrix.wrapper_out }}" | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -n1 || true)"
+          echo "Max GLIBC: ${MAX_GLIBC:-<none>}"
+
+          if [[ -n "${MAX_GLIBC}" ]] && [[ "$(printf '%s\n' "${MAX_GLIBC}" "GLIBC_2.17" | sort -V | tail -n1)" != "GLIBC_2.17" ]]; then
+            echo "ERROR: ${MAX_GLIBC} is newer than manylinux2014 baseline GLIBC_2.17"
+            exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -195,26 +233,23 @@ jobs:
 
           mkdir -p openccjni/libs openccjni-cli/libs openccjni-cli/distributions
 
-          # Collect openccjni jars
           if compgen -G "openccjni/build/libs/*.jar" > /dev/null; then
             cp -v openccjni/build/libs/*.jar openccjni/libs/
           fi
 
-          # Collect openccjni-cli jars (+ fatjar if it is a jar)
           if compgen -G "openccjni-cli/build/libs/*.jar" > /dev/null; then
             cp -v openccjni-cli/build/libs/*.jar openccjni-cli/libs/
           fi
 
-          # Collect distributions and rename to add ".jvm" before extension
           if compgen -G "openccjni-cli/build/distributions/*" > /dev/null; then
             for f in openccjni-cli/build/distributions/*; do
               base="$(basename "$f")"
               case "$base" in
-                *.zip)  new="${base%.zip}.jvm.zip" ;;
-                *.tar)  new="${base%.tar}.jvm.tar" ;;
+                *.zip) new="${base%.zip}.jvm.zip" ;;
+                *.tar) new="${base%.tar}.jvm.tar" ;;
                 *.tar.gz) new="${base%.tar.gz}.jvm.tar.gz" ;;
-                *.tgz)  new="${base%.tgz}.jvm.tgz" ;;
-                *)      new="$base" ;;
+                *.tgz) new="${base%.tgz}.jvm.tgz" ;;
+                *) new="$base" ;;
               esac
               cp -v "$f" "openccjni-cli/distributions/$new"
             done
@@ -237,7 +272,7 @@ jobs:
 
   publish_release:
     name: Create GitHub release (auto prerelease if dashed tag)
-    needs: [ build_natives, windows_collect, build_jar ]
+    needs: [build_natives, windows_collect, build_jar]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -261,15 +296,17 @@ jobs:
           echo "Artifacts tree:"
           find artifacts -maxdepth 4 -type f -print | sed 's/^/ - /' || true
 
-          # Locate wrappers
-          LINUX_SO="$(find artifacts -type f -name 'libOpenccWrapper.so' -print -quit || true)"
+          LINUX_X86_64_SO="$(find artifacts -type f -path '*linux-x86_64*' -name 'libOpenccWrapper.so' -print -quit || true)"
+          LINUX_AARCH64_SO="$(find artifacts -type f -path '*linux-aarch64*' -name 'libOpenccWrapper.so' -print -quit || true)"
           MACOS_ARM64_DYLIB="$(find artifacts -type f -path '*macos-arm64*' -name 'libOpenccWrapper.dylib' -print -quit || true)"
           MACOS_X86_64_DYLIB="$(find artifacts -type f -path '*macos-x86_64*' -name 'libOpenccWrapper.dylib' -print -quit || true)"
           WIN_DLL="$(find artifacts -type f -name 'OpenccWrapper.dll' -print -quit || true)"
 
-          # Fallback to repo resources if any are missing
-          [ -z "${LINUX_SO}" ] && [ -f openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so ] \
-            && LINUX_SO=openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so
+          [ -z "${LINUX_X86_64_SO}" ] && [ -f openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so ] \
+            && LINUX_X86_64_SO=openccjni/src/main/resources/openccjni/natives/linux-x86_64/libOpenccWrapper.so
+
+          [ -z "${LINUX_AARCH64_SO}" ] && [ -f openccjni/src/main/resources/openccjni/natives/linux-aarch64/libOpenccWrapper.so ] \
+            && LINUX_AARCH64_SO=openccjni/src/main/resources/openccjni/natives/linux-aarch64/libOpenccWrapper.so
 
           [ -z "${MACOS_ARM64_DYLIB}" ] && [ -f openccjni/src/main/resources/openccjni/natives/macos-arm64/libOpenccWrapper.dylib ] \
             && MACOS_ARM64_DYLIB=openccjni/src/main/resources/openccjni/natives/macos-arm64/libOpenccWrapper.dylib
@@ -281,29 +318,38 @@ jobs:
             && WIN_DLL=openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll
 
           echo "Using:"
-          echo " - linux so         : ${LINUX_SO:-<missing>}"
-          echo " - macOS arm64 dylib: ${MACOS_ARM64_DYLIB:-<missing>}"
+          echo " - linux x86_64 so   : ${LINUX_X86_64_SO:-<missing>}"
+          echo " - linux aarch64 so  : ${LINUX_AARCH64_SO:-<missing>}"
+          echo " - macOS arm64 dylib : ${MACOS_ARM64_DYLIB:-<missing>}"
           echo " - macOS x86_64 dylib: ${MACOS_X86_64_DYLIB:-<missing>}"
-          echo " - windows dll      : ${WIN_DLL:-<missing>}"
+          echo " - windows dll       : ${WIN_DLL:-<missing>}"
 
-          [ -n "${LINUX_SO:-}" ] || { echo "ERROR: Linux wrapper missing"; exit 1; }
+          [ -n "${LINUX_X86_64_SO:-}" ] || { echo "ERROR: Linux x86_64 wrapper missing"; exit 1; }
+          [ -n "${LINUX_AARCH64_SO:-}" ] || { echo "ERROR: Linux aarch64 wrapper missing"; exit 1; }
           [ -n "${MACOS_ARM64_DYLIB:-}" ] || { echo "ERROR: macOS arm64 wrapper missing"; exit 1; }
           [ -n "${MACOS_X86_64_DYLIB:-}" ] || { echo "ERROR: macOS x86_64 wrapper missing"; exit 1; }
           [ -n "${WIN_DLL:-}" ] || { echo "ERROR: Windows wrapper missing"; exit 1; }
 
-          mkdir -p bundle/linux-x86_64 bundle/macos-arm64 bundle/macos-x86_64 bundle/windows-x86_64
-          cp "${LINUX_SO}"           bundle/linux-x86_64/
-          cp "${MACOS_ARM64_DYLIB}"  bundle/macos-arm64/
-          cp "${MACOS_X86_64_DYLIB}" bundle/macos-x86_64/
-          cp "${WIN_DLL}"            bundle/windows-x86_64/
+          mkdir -p \
+            bundle/linux-x86_64 \
+            bundle/linux-aarch64 \
+            bundle/macos-arm64 \
+            bundle/macos-x86_64 \
+            bundle/windows-x86_64
 
-          # Include CAPI from resources
-          cp openccjni/src/main/resources/openccjni/natives/linux-x86_64/libopencc_fmmseg_capi.so       bundle/linux-x86_64/
-          cp openccjni/src/main/resources/openccjni/natives/macos-arm64/libopencc_fmmseg_capi.dylib     bundle/macos-arm64/
-          cp openccjni/src/main/resources/openccjni/natives/macos-x86_64/libopencc_fmmseg_capi.dylib    bundle/macos-x86_64/
-          cp openccjni/src/main/resources/openccjni/natives/windows-x86_64/opencc_fmmseg_capi.dll       bundle/windows-x86_64/
+          cp "${LINUX_X86_64_SO}"      bundle/linux-x86_64/
+          cp "${LINUX_AARCH64_SO}"     bundle/linux-aarch64/
+          cp "${MACOS_ARM64_DYLIB}"    bundle/macos-arm64/
+          cp "${MACOS_X86_64_DYLIB}"   bundle/macos-x86_64/
+          cp "${WIN_DLL}"              bundle/windows-x86_64/
 
-          for P in linux-x86_64 macos-arm64 macos-x86_64 windows-x86_64; do
+          cp openccjni/src/main/resources/openccjni/natives/linux-x86_64/libopencc_fmmseg_capi.so    bundle/linux-x86_64/
+          cp openccjni/src/main/resources/openccjni/natives/linux-aarch64/libopencc_fmmseg_capi.so   bundle/linux-aarch64/
+          cp openccjni/src/main/resources/openccjni/natives/macos-arm64/libopencc_fmmseg_capi.dylib  bundle/macos-arm64/
+          cp openccjni/src/main/resources/openccjni/natives/macos-x86_64/libopencc_fmmseg_capi.dylib bundle/macos-x86_64/
+          cp openccjni/src/main/resources/openccjni/natives/windows-x86_64/opencc_fmmseg_capi.dll    bundle/windows-x86_64/
+
+          for P in linux-x86_64 linux-aarch64 macos-arm64 macos-x86_64 windows-x86_64; do
             cat > "bundle/$P/README.txt" <<EOF
           OpenccJNI natives for ${P} (${TAG})
 
@@ -324,6 +370,7 @@ jobs:
           mkdir -p dist
 
           (cd bundle/linux-x86_64   && zip -9r "../OpenccJNI-natives-${TAG}-linux-x86_64.zip" .)
+          (cd bundle/linux-aarch64  && zip -9r "../OpenccJNI-natives-${TAG}-linux-aarch64.zip" .)
           (cd bundle/macos-arm64    && zip -9r "../OpenccJNI-natives-${TAG}-macos-arm64.zip" .)
           (cd bundle/macos-x86_64   && zip -9r "../OpenccJNI-natives-${TAG}-macos-x86_64.zip" .)
           (cd bundle/windows-x86_64 && zip -9r "../OpenccJNI-natives-${TAG}-windows-x86_64.zip" .)
@@ -337,7 +384,6 @@ jobs:
           set -euo pipefail
           mkdir -p dist/openccjni/libs dist/openccjni-cli/libs dist/openccjni-cli/distributions
 
-          # From downloaded artifact "java-packages"
           if compgen -G "artifacts/java-packages/openccjni/libs/*" > /dev/null; then
             cp -v artifacts/java-packages/openccjni/libs/* dist/openccjni/libs/
           fi
@@ -351,7 +397,6 @@ jobs:
           echo "== dist tree =="
           find dist -maxdepth 3 -type f -print | sed 's/^/ - /' || true
 
-          # Hard fail if nothing collected
           if ! compgen -G "dist/openccjni/libs/*.jar" > /dev/null; then
             echo "ERROR: No openccjni jars collected"
             exit 1
@@ -373,6 +418,7 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             dist/OpenccJNI-natives-${{ github.ref_name }}-linux-x86_64.zip
+            dist/OpenccJNI-natives-${{ github.ref_name }}-linux-aarch64.zip
             dist/OpenccJNI-natives-${{ github.ref_name }}-macos-arm64.zip
             dist/OpenccJNI-natives-${{ github.ref_name }}-macos-x86_64.zip
             dist/OpenccJNI-natives-${{ github.ref_name }}-windows-x86_64.zip
