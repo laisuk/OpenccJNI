@@ -22,6 +22,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Reduced `OpenccConfig` lookup initialization overhead by removing redundant lowercase key insertion.
 - Revalidated Java/JNI error handling against updated `opencc-fmmseg-capi` v0.9.2 headers and added regression tests
   for invalid-config recovery and native no-error sentinel normalization.
+- Update `opencc-fmmseg-capi` native to `v0.9.2`
 
 ---
 
