@@ -87,6 +87,9 @@ public class ConvertCommand implements Runnable {
             }
 
             String outputText = opencc.convert(inputText, punct);
+            if (outputText == null) {
+                outputText = "";
+            }
 
             if (output != null) {
                 // Files.writeString(output.toPath(), outputText, Charset.forName(outEncoding));

@@ -19,6 +19,10 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Improved documentation: aligned `README.md` public API and sample code with the actual `openccjni` package surface.
+- Clarified `OpenCC.convert(...)` JavaDoc to document when `lastError` is cleared or set for `null`, empty, and
+  invalid-configuration inputs.
+
 - Reduced `OpenccConfig` lookup initialization overhead by removing redundant lowercase key insertion.
 - Revalidated Java/JNI error handling against updated `opencc-fmmseg-capi` v0.9.2 headers and added regression tests
   for invalid-config recovery and native no-error sentinel normalization.

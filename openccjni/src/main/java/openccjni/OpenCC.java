@@ -166,9 +166,18 @@ public final class OpenCC {
     /**
      * Converts the given text using the specified configuration.
      *
+     * <p>This is equivalent to calling {@link #convert(String, String, boolean)}
+     * with {@code punctuation == false}, so last-error behavior is the same:
+     * {@code null} input sets {@code "Input is null"} and returns {@code null};
+     * empty input clears the last error and returns {@code ""}; invalid
+     * {@code config} sets {@code "Invalid config: ..."} and returns
+     * {@code input} unchanged; otherwise the last error is cleared before
+     * delegating to the native conversion.</p>
+     *
      * @param input  input text (non-null; empty allowed)
      * @param config configuration key (e.g., {@code "s2t"}, {@code "tw2s"})
-     * @return converted text; if config invalid, returns input unchanged and records error
+     * @return converted text; {@code null} if {@code input} is null; {@code ""}
+     * if {@code input} is empty; {@code input} unchanged if {@code config} is invalid
      * @since 1.0.0
      */
     public static String convert(String input, String config) {
@@ -181,10 +190,19 @@ public final class OpenCC {
      * <p>If {@code config} is invalid, returns {@code input} unchanged and records
      * the error via {@link #getLastError()}.</p>
      *
+     * <p>Last-error behavior:</p>
+     * <ul>
+     *   <li>If {@code input} is {@code null}, sets {@code "Input is null"} and returns {@code null}.</li>
+     *   <li>If {@code input} is empty, clears the last error and returns {@code ""}.</li>
+     *   <li>If {@code config} is invalid, sets {@code "Invalid config: ..."} and returns {@code input} unchanged.</li>
+     *   <li>Otherwise, clears the last error before delegating to the enum-based overload.</li>
+     * </ul>
+     *
      * @param input       input text (non-null; empty allowed)
      * @param config      configuration key (e.g., {@code "s2t"}, {@code "tw2s"})
      * @param punctuation whether to convert punctuation
-     * @return converted text; if config invalid, returns input unchanged and records error
+     * @return converted text; {@code null} if {@code input} is null; {@code ""}
+     * if {@code input} is empty; {@code input} unchanged if {@code config} is invalid
      * @since 1.0.0
      */
     public static String convert(String input, String config, boolean punctuation) {
@@ -211,10 +229,21 @@ public final class OpenCC {
      *
      * <p>Fast path: resolves enum -&gt; numeric id once (cached) and calls native {@code convertCfg}.</p>
      *
+     * <p>Last-error behavior:</p>
+     * <ul>
+     *   <li>If {@code input} is {@code null}, sets {@code "Input is null"} and returns {@code null}.</li>
+     *   <li>If {@code input} is empty, clears the last error and returns {@code ""}.</li>
+     *   <li>If {@code configId} is {@code null}, sets {@code "Config is null"} and returns {@code input} unchanged.</li>
+     *   <li>If the native config id cannot be resolved, sets {@code "Invalid config: ..."} and returns {@code input} unchanged.</li>
+     *   <li>Otherwise, clears the last error before calling the native wrapper.</li>
+     * </ul>
+     *
      * @param input       input text; may be {@code null}
      * @param configId    OpenCC config id; may be {@code null}
      * @param punctuation whether to convert punctuation
-     * @return converted text; {@code null} if input null; input unchanged if configId null
+     * @return converted text; {@code null} if {@code input} is null; {@code ""}
+     * if {@code input} is empty; {@code input} unchanged if {@code configId} is null
+     * or cannot be resolved to a native config id
      * @since 1.0.0
      */
     public static String convert(String input, OpenccConfig configId, boolean punctuation) {
@@ -294,8 +323,15 @@ public final class OpenCC {
     /**
      * Converts the input text using this instance's configuration.
      *
+     * <p>This is equivalent to calling {@link #convert(String, boolean)} with
+     * {@code punctuation == false}, so last-error behavior is the same:
+     * {@code null} input sets {@code "Input is null"} and returns {@code null};
+     * empty input clears the last error and returns {@code ""}; otherwise the
+     * last error is cleared before native conversion.</p>
+     *
      * @param input input text (non-null; empty allowed)
-     * @return converted text
+     * @return converted text; {@code null} if {@code input} is null; {@code ""}
+     * if {@code input} is empty
      * @since 1.0.0
      */
     public String convert(String input) {
@@ -307,9 +343,17 @@ public final class OpenCC {
      *
      * <p>Fast path: config enum resolved to native numeric id once and cached.</p>
      *
+     * <p>Last-error behavior:</p>
+     * <ul>
+     *   <li>If {@code input} is {@code null}, sets {@code "Input is null"} and returns {@code null}.</li>
+     *   <li>If {@code input} is empty, clears the last error and returns {@code ""}.</li>
+     *   <li>Otherwise, clears the last error before calling the native wrapper.</li>
+     * </ul>
+     *
      * @param input       input text (non-null; empty allowed)
      * @param punctuation whether to convert punctuation
-     * @return converted text; null if input null
+     * @return converted text; {@code null} if {@code input} is null; {@code ""}
+     * if {@code input} is empty
      * @since 1.0.0
      */
     public String convert(String input, boolean punctuation) {
