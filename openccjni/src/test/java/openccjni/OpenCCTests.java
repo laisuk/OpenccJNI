@@ -138,6 +138,39 @@ public class OpenCCTests {
     }
 
     @Test
+    void testValidConfigClearsLastErrorAfterInvalidConstructorInput() {
+        OpenCC.setLastError(null);
+
+        OpenCC bad = new OpenCC("invalid_config");
+        assertEquals("Invalid config: invalid_config", OpenCC.getLastError());
+
+        OpenCC good = new OpenCC("s2tw");
+        assertEquals("s2tw", good.getConfig());
+        assertEquals("", OpenCC.getLastError());
+    }
+
+    @Test
+    void testSetConfigClearsLastErrorAfterInvalidInput() {
+        OpenCC cc = new OpenCC();
+
+        cc.setConfig("invalid_config");
+        assertEquals("Invalid config: invalid_config", OpenCC.getLastError());
+
+        cc.setConfig("tw2s");
+        assertEquals("tw2s", cc.getConfig());
+        assertEquals("", OpenCC.getLastError());
+    }
+
+    @Test
+    void testNativeNoErrorSentinelIsNormalizedToEmptyString() {
+        OpenCC.setLastError(null);
+
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertEquals("", w.getLastError());
+        }
+    }
+
+    @Test
     void testConfigEnum() {
         OpenccConfig configEnum = OpenccConfig.tryParse("s2twp");
         String ConfigStr = configEnum.toCanonicalName();
@@ -230,3 +263,5 @@ public class OpenCCTests {
     }
 
 }
+
+

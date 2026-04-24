@@ -7,12 +7,12 @@
 // Helper to read a Java byte[] into std::string (no copy back).
 // Returns std::nullopt when the array itself is null so callers can
 // decide whether to proceed with native calls.
-static std::optional<std::string> jbyteArrayToString(JNIEnv* env, jbyteArray array) {
+static std::optional<std::string> jbyteArrayToString(JNIEnv *env, jbyteArray array) {
     if (!array) return std::nullopt;
     jsize length = env->GetArrayLength(array);
     std::string s(static_cast<size_t>(length), '\0');
     if (length > 0) {
-        env->GetByteArrayRegion(array, 0, length, reinterpret_cast<jbyte*>(s.data()));
+        env->GetByteArrayRegion(array, 0, length, reinterpret_cast<jbyte *>(s.data()));
         if (env->ExceptionCheck()) {
             return std::nullopt;
         }
@@ -23,7 +23,7 @@ static std::optional<std::string> jbyteArrayToString(JNIEnv* env, jbyteArray arr
 // -------------------- NEW: library-level ABI + version --------------------
 
 JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1abi_1number
-  (JNIEnv* /*env*/, jclass /*cls*/) {
+(JNIEnv * /*env*/, jclass /*cls*/) {
     // C API returns uint32_t; Java side is int.
     // ABI numbers are typically small; if you ever exceed signed int range,
     // consider changing Java signature to long.
@@ -32,8 +32,8 @@ JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1abi_1number
 }
 
 JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1version_1string
-  (JNIEnv* env, jclass /*cls*/) {
-    const char* ver = opencc_version_string();
+(JNIEnv *env, jclass /*cls*/) {
+    const char *ver = opencc_version_string();
     if (ver == nullptr) return nullptr; // defensive
     // opencc_version_string() is documented as null-terminated UTF-8.
     return env->NewStringUTF(ver);
@@ -42,12 +42,12 @@ JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1version_1string
 // -------------------- existing instance methods --------------------
 
 JNIEXPORT jlong JNICALL Java_openccjni_OpenccWrapper_opencc_1new
-  (JNIEnv* env, jobject /*obj*/) {
+(JNIEnv *env, jobject /*obj*/) {
     return reinterpret_cast<jlong>(opencc_new());
 }
 
 JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert
-  (JNIEnv* env, jobject /*obj*/, jlong instance, jbyteArray input, jbyteArray config, jboolean punctuation) {
+(JNIEnv *env, jobject /*obj*/, jlong instance, jbyteArray input, jbyteArray config, jboolean punctuation) {
     if (instance == 0) {
         jclass exClass = env->FindClass("java/lang/IllegalStateException");
         if (exClass != nullptr) {
@@ -56,18 +56,18 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert
         return nullptr;
     }
     // Convert inputs
-    auto inputStrOpt  = jbyteArrayToString(env, input);
+    auto inputStrOpt = jbyteArrayToString(env, input);
     auto configStrOpt = jbyteArrayToString(env, config);
     if (!inputStrOpt || !configStrOpt) {
         return nullptr;
     }
 
     // Call native
-    char* output = opencc_convert(
-        reinterpret_cast<void*>(instance),
+    char *output = opencc_convert(
+        reinterpret_cast<void *>(instance),
         inputStrOpt->c_str(),
         configStrOpt->c_str(),
-        (punctuation == JNI_TRUE)   // coerce jboolean → bool explicitly
+        (punctuation == JNI_TRUE) // coerce jboolean → bool explicitly
     );
 
     // Marshal back to byte[]
@@ -76,15 +76,15 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert
         const jsize outLen = static_cast<jsize>(std::strlen(output));
         result = env->NewByteArray(outLen);
         if (result != nullptr) {
-            env->SetByteArrayRegion(result, 0, outLen, reinterpret_cast<const jbyte*>(output));
+            env->SetByteArrayRegion(result, 0, outLen, reinterpret_cast<const jbyte *>(output));
         }
-        opencc_string_free(output);  // free native buffer
+        opencc_string_free(output); // free native buffer
     }
     return result;
 }
 
 JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert_1cfg
-  (JNIEnv* env, jobject /*obj*/, jlong instance, jbyteArray input, jint config_id, jboolean punctuation) {
+(JNIEnv *env, jobject /*obj*/, jlong instance, jbyteArray input, jint config_id, jboolean punctuation) {
     if (instance == 0) {
         jclass exClass = env->FindClass("java/lang/IllegalStateException");
         if (exClass != nullptr) env->ThrowNew(exClass, "OpenCC instance is null");
@@ -94,8 +94,8 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert_1cfg
     auto inputStrOpt = jbyteArrayToString(env, input);
     if (!inputStrOpt) return nullptr;
 
-    char* output = opencc_convert_cfg(
-        reinterpret_cast<void*>(instance),
+    char *output = opencc_convert_cfg(
+        reinterpret_cast<void *>(instance),
         inputStrOpt->c_str(),
         static_cast<opencc_config_t>(config_id),
         (punctuation == JNI_TRUE)
@@ -106,7 +106,7 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert_1cfg
         const jsize outLen = static_cast<jsize>(std::strlen(output));
         result = env->NewByteArray(outLen);
         if (result != nullptr) {
-            env->SetByteArrayRegion(result, 0, outLen, reinterpret_cast<const jbyte*>(output));
+            env->SetByteArrayRegion(result, 0, outLen, reinterpret_cast<const jbyte *>(output));
         }
         opencc_string_free(output);
     }
@@ -114,7 +114,7 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert_1cfg
 }
 
 JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1delete
-  (JNIEnv* env, jobject /*obj*/, jlong instance) {
+(JNIEnv *env, jobject /*obj*/, jlong instance) {
     if (instance == 0) {
         jclass exClass = env->FindClass("java/lang/IllegalStateException");
         if (exClass != nullptr) {
@@ -122,11 +122,11 @@ JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1delete
         }
         return;
     }
-    opencc_delete(reinterpret_cast<void*>(instance));
+    opencc_delete(reinterpret_cast<void *>(instance));
 }
 
 JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1zho_1check
-  (JNIEnv* env, jobject /*obj*/, jlong instance, jbyteArray input) {
+(JNIEnv *env, jobject /*obj*/, jlong instance, jbyteArray input) {
     if (instance == 0) {
         jclass exClass = env->FindClass("java/lang/IllegalStateException");
         if (exClass != nullptr) {
@@ -138,12 +138,12 @@ JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1zho_1check
     if (!inputStrOpt) {
         return -1;
     }
-    int code = opencc_zho_check(reinterpret_cast<void*>(instance), inputStrOpt->c_str());
+    int code = opencc_zho_check(reinterpret_cast<void *>(instance), inputStrOpt->c_str());
     return static_cast<jint>(code);
 }
 
 JNIEXPORT jboolean JNICALL Java_openccjni_OpenccWrapper_opencc_1get_1parallel
-  (JNIEnv* env, jobject /*obj*/, jlong instance) {
+(JNIEnv *env, jobject /*obj*/, jlong instance) {
     if (instance == 0) {
         jclass exClass = env->FindClass("java/lang/IllegalStateException");
         if (exClass != nullptr) {
@@ -151,11 +151,11 @@ JNIEXPORT jboolean JNICALL Java_openccjni_OpenccWrapper_opencc_1get_1parallel
         }
         return JNI_FALSE;
     }
-    return opencc_get_parallel(reinterpret_cast<void*>(instance)) ? JNI_TRUE : JNI_FALSE;
+    return opencc_get_parallel(reinterpret_cast<void *>(instance)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1set_1parallel
-  (JNIEnv* env, jobject /*obj*/, jlong instance, jboolean is_parallel) {
+(JNIEnv *env, jobject /*obj*/, jlong instance, jboolean is_parallel) {
     if (instance == 0) {
         jclass exClass = env->FindClass("java/lang/IllegalStateException");
         if (exClass != nullptr) {
@@ -163,20 +163,25 @@ JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1set_1parallel
         }
         return;
     }
-    opencc_set_parallel(reinterpret_cast<void*>(instance), (is_parallel == JNI_TRUE));
+    opencc_set_parallel(reinterpret_cast<void *>(instance), (is_parallel == JNI_TRUE));
 }
 
 JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1last_1error
-  (JNIEnv* env, jobject /*obj*/) {
-    char* err = opencc_last_error();
+(JNIEnv *env, jobject /*obj*/) {
+    char *err = opencc_last_error();
     if (err == nullptr) return nullptr;
     jstring s = env->NewStringUTF(err); // assumes UTF-8
     opencc_error_free(err);
     return s;
 }
 
+JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1clear_1last_1error
+(JNIEnv * /*env*/, jobject /*obj*/) {
+    opencc_clear_last_error();
+}
+
 JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1name_1to_1id
-  (JNIEnv* env, jobject /*obj*/, jbyteArray name_utf8) {
+(JNIEnv *env, jobject /*obj*/, jbyteArray name_utf8) {
     auto nameOpt = jbyteArrayToString(env, name_utf8);
     if (!nameOpt) return static_cast<jint>(-1);
 
@@ -188,14 +193,14 @@ JNIEXPORT jint JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1name_1to_1id
 }
 
 JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1id_1to_1name
-  (JNIEnv* env, jobject /*obj*/, jint config_id) {
-    const char* name = opencc_config_id_to_name(static_cast<opencc_config_t>(config_id));
+(JNIEnv *env, jobject /*obj*/, jint config_id) {
+    const char *name = opencc_config_id_to_name(static_cast<opencc_config_t>(config_id));
     if (name == nullptr) return nullptr;
 
     const jsize len = static_cast<jsize>(std::strlen(name));
     jbyteArray result = env->NewByteArray(len);
     if (result != nullptr) {
-        env->SetByteArrayRegion(result, 0, len, reinterpret_cast<const jbyte*>(name));
+        env->SetByteArrayRegion(result, 0, len, reinterpret_cast<const jbyte *>(name));
     }
     return result;
 }

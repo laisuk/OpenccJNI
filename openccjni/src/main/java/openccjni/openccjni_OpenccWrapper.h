@@ -81,6 +81,13 @@ JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1last_1error
 
 /*
  * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_clear_last_error
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1clear_1last_1error
+  (JNIEnv *, jobject);
+/*
+ * Class:     openccjni_OpenccWrapper
  * Method:    opencc_convert_cfg
  * Signature: (J[BIZ)[B
  */
@@ -107,3 +114,4 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1id_1to
 }
 #endif
 #endif
+

@@ -40,7 +40,7 @@ public class OpenccWrapper implements AutoCloseable {
      * <p>The returned string is owned by the native library and is valid
      * for the lifetime of the process.</p>
      *
-     * <p>Example: {@code "0.8.4"}</p>
+     * <p>Example: {@code "0.9.2"}</p>
      */
     private static native String opencc_version_string();
 
@@ -88,6 +88,11 @@ public class OpenccWrapper implements AutoCloseable {
      * Retrieves the last error message from the native side.
      */
     private native String opencc_last_error();
+
+    /**
+     * Clears the native last-error state.
+     */
+    private native void opencc_clear_last_error();
 
     /**
      * Converts text using a numeric config id and punctuation setting.
@@ -189,7 +194,7 @@ public class OpenccWrapper implements AutoCloseable {
      * <p>The returned string is owned by the native library and is valid
      * for the lifetime of the process.</p>
      *
-     * <p>Example: {@code "0.8.4"}</p>
+     * <p>Example: {@code "0.9.2"}</p>
      *
      * @return the native OpenCC-FMMSEG version string
      */
@@ -354,7 +359,18 @@ public class OpenccWrapper implements AutoCloseable {
     public String getLastError() {
         ensureOpen();
         final String lastError = opencc_last_error(); // native
-        return lastError != null ? lastError : "";
+        if (lastError == null || "No error".equals(lastError)) {
+            return "";
+        }
+        return lastError;
+    }
+
+    /**
+     * Clears the native last error so future reads reflect only new failures.
+     */
+    public void clearLastError() {
+        ensureOpen();
+        opencc_clear_last_error();
     }
 
     /**
@@ -371,3 +387,5 @@ public class OpenccWrapper implements AutoCloseable {
         }
     }
 }
+
+

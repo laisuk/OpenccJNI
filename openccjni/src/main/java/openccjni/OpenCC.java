@@ -91,6 +91,7 @@ public final class OpenCC {
      */
     public OpenCC() {
         this.configId = OpenccConfig.defaultConfig();
+        setLastError(null);
     }
 
     /**
@@ -111,6 +112,8 @@ public final class OpenCC {
         if (parsed == null) {
             setLastError("Invalid config: " + config);
             parsed = OpenccConfig.defaultConfig();
+        } else {
+            setLastError(null);
         }
         this.configId = parsed;
     }
@@ -128,6 +131,8 @@ public final class OpenCC {
         if (configId == null) {
             setLastError("Config is null");
             configId = OpenccConfig.defaultConfig();
+        } else {
+            setLastError(null);
         }
         this.configId = configId;
     }
@@ -374,6 +379,8 @@ public final class OpenCC {
         if (parsed == null) {
             setLastError("Invalid config: " + config);
             parsed = OpenccConfig.defaultConfig();
+        } else {
+            setLastError(null);
         }
         this.configId = parsed;
         this.resolvedNumericId = -1;
@@ -391,6 +398,8 @@ public final class OpenCC {
         if (configId == null) {
             setLastError("Config is null");
             configId = OpenccConfig.defaultConfig();
+        } else {
+            setLastError(null);
         }
         this.configId = configId;
         this.resolvedNumericId = -1;
@@ -419,6 +428,9 @@ public final class OpenCC {
      */
     public static void setLastError(String lastError) {
         LAST_ERROR.set(lastError);
+        if (lastError == null) {
+            WRAPPER.get().clearLastError();
+        }
     }
 
     // ---------- Internal helpers ----------
@@ -437,3 +449,4 @@ public final class OpenCC {
         return cached;
     }
 }
+

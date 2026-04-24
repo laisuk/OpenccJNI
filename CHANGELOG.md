@@ -12,6 +12,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 - `OfficeHelper.convert(File, File, ...)` now rejects `null` output targets instead of returning a misleading success
   result during Office document conversion.
+- Cleared stale Java/native last-error state when `OpenCC` config construction or `setConfig(...)` succeeds after an
+  earlier invalid config.
+- Aligned JNI last-error handling with `opencc-fmmseg-capi` by exposing `opencc_clear_last_error()` and normalizing the
+  native `"No error"` sentinel to the empty string in Java.
+
+### Changed
+
+- Reduced `OpenccConfig` lookup initialization overhead by removing redundant lowercase key insertion.
+- Revalidated Java/JNI error handling against updated `opencc-fmmseg-capi` v0.9.2 headers and added regression tests
+  for invalid-config recovery and native no-error sentinel normalization.
 
 ---
 
@@ -79,3 +89,5 @@ java --enable-native-access=ALL-UNNAMED -jar openccjava-cli-1.0.3.jar convert -c
 - Bundled native libraries for Windows, Linux, and macOS.
 - Added Javadoc and source jars.
 - 
+
+
