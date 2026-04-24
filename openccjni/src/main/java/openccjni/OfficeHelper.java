@@ -371,6 +371,10 @@ public class OfficeHelper {
             boolean keepFont
     ) {
         try {
+            if (outputFile == null) {
+                return new FileResult(false, "❌ Output file must not be null.");
+            }
+
             byte[] inputBytes = Files.readAllBytes(inputFile.toPath());
             MemoryResult core = convert(inputBytes, format, converter, punctuation, keepFont);
 
@@ -382,14 +386,12 @@ public class OfficeHelper {
                 return new FileResult(false, "❌ Core conversion returned no data.");
             }
 
-            if (outputFile != null) {
-                Path outPath = outputFile.toPath();
-                Path parent = outPath.getParent();
-                if (parent != null) {
-                    Files.createDirectories(parent);
-                }
-                Files.write(outPath, core.data);
+            Path outPath = outputFile.toPath();
+            Path parent = outPath.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
             }
+            Files.write(outPath, core.data);
 
             return new FileResult(true, core.message);
         } catch (IOException ex) {
