@@ -70,25 +70,24 @@ public class Demo {
 }
 ```
 
-### B) Instance usage (explicit wrapper)
+### B) Instance usage (persistent `OpenCC` profile)
 
-If you prefer managing the native handle explicitly:
+If you want to reuse one conversion profile across calls:
 
 ```java
-import openccjni.OpenccWrapper;
+import openccjni.OpenCC;
 
 public class Demo {
     static void main(String[] args) {
-        try (OpenccWrapper w = new OpenccWrapper()) {
-            String out = w.convert("汉字转换测试", "s2t");
-            System.out.println(out);  // 漢字轉換測試
-        }
+        OpenCC cc = OpenCC.fromConfig("s2t");
+        String out = cc.convert("汉字转换测试");
+        System.out.println(out);  // 漢字轉換測試
     }
 }
 ```
 
-Both styles are thread-safe: the static helper uses a ThreadLocal native wrapper under the hood; the instance style is
-safe to reuse across calls and auto-closes.
+Both styles use the public `OpenCC` API. Internally, `OpenCC` uses a thread-local native wrapper, so static helpers and
+instance calls are safe to use concurrently across threads.
 
 ### Supported config names
 
@@ -101,7 +100,7 @@ tw2t, tw2tp, hk2t, t2jp, jp2t
 Example:
 
 ```java
-string converted = OpenCC.convert("後臺處理程序", "t2s"); // → "后台处理程序"
+String converted = OpenCC.convert("後臺處理程序", "t2s"); // → "后台处理程序"
 
 ```
 
@@ -269,52 +268,88 @@ openccjni/
 
 ---
 
-## 📖 API Reference
+## 📖 Public API
 
-The main entry point is the [`OpenCC`](openccjni/src/main/java/openccjni/OpenCC.java) class.  
-It provides both **static one-off helpers** and an **instance API** with a persistent conversion profile.
+The main public entry point is [`OpenCC`](openccjni/src/main/java/openccjni/OpenCC.java).
+The strongly typed config enum is
+[`OpenccConfig`](openccjni/src/main/java/openccjni/OpenccConfig.java). The lower-level
+[`OpenccWrapper`](openccjni/src/main/java/openccjni/OpenccWrapper.java) class is also public,
+but it is a JNI bridge intended mainly for advanced use.
 
-### Static Methods
+### `OpenCC` static API
 
-```text
-// Create a new instance with the given config (default: "s2t")
+```c++
+// Create a new instance with the given config
 OpenCC.fromConfig(String config)
+OpenCC.fromConfig(OpenccConfig configId)
 
 // One-off conversion
 OpenCC.convert(String input, String config)
 OpenCC.convert(String input, String config, boolean punctuation)
 OpenCC.convert(String input, OpenccConfig configId, boolean punctuation)
 
-// Check for Traditional/Simplified Chinese characters
-// Returns: 1 - Traditional, 2 - Simplified, 0 - Others
-OpenCC.zhoCheck(String text) -> int
+// Config helpers
+OpenCC.isSupportedConfig(String value)
+OpenCC.getSupportedConfigs()
 
-// Supported config keys
-OpenCC.getSupportedConfigs() -> List<String>
+// Chinese text detection
+// Returns: 1 = Traditional, 2 = Simplified, 0 = Other / unknown
+OpenCC.zhoCheck(String text)
+
+// Parallel mode
+OpenCC.isParallel()
+OpenCC.setParallel(boolean isParallel)
 
 // Last error message
-OpenCC.getLastError() -> String
-OpenCC.setLastError(String err)
-
+OpenCC.getLastError()
+OpenCC.setLastError(String lastError)
 ```
 
-### Instance Methods
+### `OpenCC` instance API
 
-```markdown
+```c++
 // Constructors
-new OpenCC()                   // defaults to "s2t"
-new OpenCC(String config)      // uses given config (fallback to "s2t" if invalid)
-new OpenCC(OpenccConfig configId)      // uses given configId (fallback to OpenccConfig.S2T if invalid)
+new OpenCC()                         // defaults to "s2t"
+new OpenCC(String config)            // invalid input falls back to "s2t"
+new OpenCC(OpenccConfig configId)    // null falls back to OpenccConfig.S2T
 
 // Conversion
 cc.convert(String input)
 cc.convert(String input, boolean punctuation)
 
 // Config management
-cc.getConfig() → String
-cc.getConfigId() → OpenccConfig
+cc.getConfig()
+cc.getConfigId()
 cc.setConfig(String config)
 cc.setConfig(OpenccConfig configId)
+```
+
+### `OpenccWrapper` advanced API
+
+```c++
+// Native library metadata
+OpenccWrapper.getAbiNumber()
+OpenccWrapper.getVersionString()
+
+// Instance lifecycle
+new OpenccWrapper()
+wrapper.close()
+
+// Low-level conversion
+wrapper.convert(String input, String config, boolean punctuation)
+wrapper.convertCfg(String input, int configId, boolean punctuation)
+
+// Config id helpers
+wrapper.configNameToId(String canonicalName)
+wrapper.configNameToId(OpenccConfig configId)
+wrapper.configIdToName(int configId)
+
+// Native state helpers
+wrapper.isParallel()
+wrapper.setParallel(boolean isParallel)
+wrapper.zhoCheck(String input)
+wrapper.getLastError()
+wrapper.clearLastError()
 ```
 
 ### Supported Configurations
@@ -330,19 +365,31 @@ The following configuration keys are recognized (matching OpenCC profiles
 - `t2hk`, `hk2t` – Traditional ↔ Hong Kong
 - `t2jp`, `jp2t` – Traditional ↔ Japanese
 
-### Usage Examples
+### Sample Code
 
-```java
+```c++
 // Static one-off conversion
-String out = OpenCC.convert("汉字", "s2t");  // 漢字
+String staticOut = OpenCC.convert("汉字", "s2t");  // 漢字
 
 // Instance API with persistent config
 OpenCC cc = OpenCC.fromConfig("tw2s");
-String out = cc.convert("繁體字");  // 繁体字
+String instanceOut = cc.convert("繁體字");  // 繁体字
 
 // With punctuation conversion
-String out = OpenCC.convert("“汉字”", "s2t", true);  // 「漢字」
+String punctOut = OpenCC.convert("“汉字”", "s2t", true);  // 「漢字」
+```
 
+```c++
+// Enum-based config
+String enumOut = OpenCC.convert("汉字", OpenccConfig.S2T, false);  // 漢字
+```
+
+```c++
+// Low-level wrapper API
+try (OpenccWrapper wrapper = new OpenccWrapper()) {
+    String wrapperOut = wrapper.convert("汉字", "s2t", false);
+    System.out.println(wrapperOut);
+}
 ```
 
 ---
