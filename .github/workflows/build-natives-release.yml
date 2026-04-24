@@ -283,7 +283,7 @@ jobs:
 
   publish_release:
     name: Create GitHub release (auto prerelease if dashed tag)
-    needs: [build_natives, windows_collect, build_jar]
+    needs: [ build_natives, windows_collect, build_jar ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
