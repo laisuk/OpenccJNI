@@ -107,7 +107,7 @@ public class OpenccWrapper implements AutoCloseable {
      * @param punctuation whether to convert punctuation
      * @return UTF-8 encoded result (or error string for invalid config), or {@code null}
      * only if {@code instance} or {@code input} is null, or if allocation fails
-     * @since opencc-fmmseg-capi v0.8.4
+     * @since 1.2.0
      */
     private native byte[] opencc_convert_cfg(long instance, byte[] input, int configId, boolean punctuation);
 
@@ -116,7 +116,7 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param nameUtf8 UTF-8 encoded canonical config name (e.g. {@code "s2twp"})
      * @return numeric config id (opencc_config_t), or {@code -1} if invalid / null
-     * @since opencc-fmmseg-capi v0.8.4
+     * @since 1.2.0
      */
     private native int opencc_config_name_to_id(byte[] nameUtf8);
 
@@ -125,7 +125,7 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param configId numeric config id (opencc_config_t)
      * @return UTF-8 encoded canonical config name, or {@code null} if invalid
-     * @since opencc-fmmseg-capi v0.8.4
+     * @since 1.2.0
      */
     private native byte[] opencc_config_id_to_name(int configId);
 
@@ -183,6 +183,7 @@ public class OpenccWrapper implements AutoCloseable {
      * It only changes when the native C ABI is broken.</p>
      *
      * @return the native C ABI version number
+     * @since 1.2.0
      */
     public static int getAbiNumber() {
         return opencc_abi_number();
@@ -197,6 +198,7 @@ public class OpenccWrapper implements AutoCloseable {
      * <p>Example: {@code "0.9.2"}</p>
      *
      * @return the native OpenCC-FMMSEG version string
+     * @since 1.2.0
      */
     public static String getVersionString() {
         String v = opencc_version_string();
@@ -251,7 +253,7 @@ public class OpenccWrapper implements AutoCloseable {
      * @return converted text; for invalid {@code configId}, returns the native error string
      * @throws RuntimeException if the native conversion returns {@code null} unexpectedly
      *                          (typically OOM or a fatal native error)
-     * @since opencc-fmmseg-capi v0.8.4
+     * @since 1.2.0
      */
     public String convertCfg(String input, int configId, boolean punctuation) {
         ensureOpen();
@@ -280,7 +282,7 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param canonicalName canonical config name (e.g. {@code "s2twp"}); may be null
      * @return numeric config id (opencc_config_t), or {@code -1} if invalid/unknown
-     * @since opencc-fmmseg-capi v0.8.4
+     * @since 1.2.0
      */
     public int configNameToId(String canonicalName) {
         ensureOpen();
@@ -295,7 +297,7 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param configId config enum; may be null
      * @return numeric config id (opencc_config_t), or {@code -1} if {@code configId} is null
-     * @since opencc-fmmseg-capi v0.8.4
+     * @since 1.2.0
      */
     public int configNameToId(OpenccConfig configId) {
         ensureOpen();
@@ -308,7 +310,7 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param configId numeric config id (opencc_config_t)
      * @return canonical config name (e.g. {@code "s2twp"}), or {@code null} if {@code configId} is invalid
-     * @since opencc-fmmseg-capi v0.8.4
+     * @since 1.2.0
      */
     public String configIdToName(int configId) {
         ensureOpen();
@@ -367,6 +369,8 @@ public class OpenccWrapper implements AutoCloseable {
 
     /**
      * Clears the native last error so future reads reflect only new failures.
+     *
+     * @since 1.2.2
      */
     public void clearLastError() {
         ensureOpen();

@@ -44,11 +44,15 @@ public enum OpenccConfig {
 
     /**
      * Simplified → Traditional (Hong Kong, with phrases).
+     *
+     * @since 1.3.0
      */
     S2HKP,
 
     /**
      * Traditional (Hong Kong, with phrases) → Simplified.
+     *
+     * @since 1.3.0
      */
     HK2SP,
 

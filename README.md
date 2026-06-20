@@ -226,8 +226,10 @@ Place the resulting native next to the JAR or embed it under `/openccjni/natives
 
 ## 🧵 Threading & performance
 
-- Use `OpenCC` instances freely across threads; the high-level API keeps per-thread JNI handles under the hood for
-  lock-free conversions.
+- Use the static `OpenCC.convert(...)` methods for thread-safe concurrent conversion; the high-level API keeps
+  per-thread JNI handles under the hood for these calls.
+- Configured `OpenCC` instances are mutable and are not thread-safe. Keep each instance on one thread or synchronize
+  access externally.
 - The native library relies on immutable data and minimal synchronization, so parallel conversions are efficient.
 - For long-running servers, prefer reusing the instance (pattern B) to amortize initialization.
 

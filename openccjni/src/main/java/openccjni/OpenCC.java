@@ -22,7 +22,9 @@ import java.util.concurrent.ConcurrentMap;
  * </pre>
  *
  * <p><b>Thread-safety:</b> A {@link ThreadLocal} wrapper instance is used internally, so calls
- * to the static helpers are safe to use concurrently across threads.
+ * to the static helpers, including the static {@code convert(...)} overloads, are safe to use
+ * concurrently across threads. Configured {@code OpenCC} instances are mutable and are not
+ * thread-safe; confine each instance to one thread or provide external synchronization.
  *
  * <h2>Examples</h2>
  *
