@@ -16,6 +16,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 - Update `opencc-fmmseg-capi` to v0.11.1
 - CLI: Optimized subcommand `openccjni-cli office`.
+- Restored native loading to `OpenccWrapper` and clarified thread-safety and custom-native guidance.
+- Improved package JavaDoc and corrected Java API `@since` metadata.
+
+### Fixed
+
+- Made `OfficeHelper.OFFICE_FORMATS` immutable and enforced conversion-result invariants.
+- Propagated ZIP entry failures instead of silently producing incomplete archives.
 
 ---
 

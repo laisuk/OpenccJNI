@@ -16,7 +16,7 @@
 ## ✨ Features
 
 - **OpenCC + FMMSEG**: Longest-match phrase segmentation backed by OpenCC dictionaries.
-- **Fast & parallel-friendly**: Designed to be used safely across threads (see ThreadLocal note).
+- **Fast & parallel-friendly**: Static conversions use thread-local native wrappers and are safe across threads.
 - **Auto native load**: `OpenCC` automatically loads the native library (system-first, then from resources) — you
   typically **do not need** to call `NativeLibLoader` yourself.
 - **Wide config support**: Common OpenCC configurations out of the box (see below).
@@ -86,8 +86,9 @@ public class Demo {
 }
 ```
 
-Both styles use the public `OpenCC` API. Internally, `OpenCC` uses a thread-local native wrapper, so static helpers and
-instance calls are safe to use concurrently across threads.
+Both styles use the public `OpenCC` API. Static helpers use a thread-local native wrapper and are safe to call
+concurrently. Configured `OpenCC` instances are mutable and should remain confined to one thread unless access is
+externally synchronized.
 
 ### Supported config names
 
@@ -112,8 +113,8 @@ String converted = OpenCC.convert("後臺處理程序", "t2s"); // → "后台�
   Embed natives under:  
   `openccjni/natives/{os}-{arch}/{System.mapLibraryName("OpenccWrapper")}` and,  
   `openccjni/natives/{os}-{arch}/{System.mapLibraryName("opencc_fmmseg_capi")}`  
-  The `OpenCC` class will attempt `System.loadLibrary` first, then auto-extract from resources to a shared temp dir and
-  `System.load()` it.
+  `OpenccWrapper` attempts `System.loadLibrary` first, then auto-extracts resources to a shared temp directory and loads
+  them with `System.load()`.
 
 - **B — System-installed natives**  
   Put `OpenccWrapper.dll` + `opencc_fmmseg_capi.dll`/ `libOpenccWrapper.so` + `libopencc_fmmseg_capi.so` /
@@ -145,14 +146,14 @@ public class Demo {
 }
 ```
 
-> Internally, `OpenCC` typically uses a thread-local `OpenccWrapper` instance, so concurrent conversions are safe
-> without extra locking in user code.
+> The static `OpenCC.convert(...)` methods use thread-local `OpenccWrapper` instances, so concurrent static
+> conversions do not require extra locking in user code.
 
 ---
 
 ## 🧩 Native loading details
 
-Default resolution order used by `OpenCC`:
+Default resolution order used by `OpenccWrapper`:
 
 1. `System.loadLibrary("OpenccWrapper")` (PATH / `java.library.path` / working dir, etc.)
 2. If not found, extract from JAR resources under:
@@ -174,53 +175,20 @@ Default resolution order used by `OpenCC`:
 
 ## 🔧 Build from source
 
-### Prerequisites
-
-- **JDK**: 8+ (11+ recommended)
-- **C/C++ toolchain**:
-    - **Windows**: MinGW-w64 (posix-seh, e.g., x86_64-14.x). 32-bit builds via `i686` toolchain.
-    - **Linux**: GCC/Clang with standard libc.
-    - **macOS**: Xcode/Clang.
-- **Native dependency**: `opencc_fmmseg_capi` (build from [opencc-fmmseg](https://github.com/laisuk/opencc-fmmseg) Rust
-  source or provide binaries on your link path).
-
-### Generate JNI header
+Build and test the Java projects with the Gradle wrapper:
 
 ```bash
-# From the Java source root; outputs a JNI header for OpenccWrapper bindings
-javac -h . src/main/java/openccjni/OpenccWrapper.java src/main/java/openccjni/OpenccConfig.java
+./gradlew build
 ```
 
-This produces a header like `openccjni_OpenccWrapper.h` that your C/C++ file includes.
+Release artifacts already include native libraries for the supported platforms. Most users should not build the native
+components manually.
 
-### Example link commands
-
-> Adjust include/lib paths for your environment. Library name is illustrative.
-
-**Windows (MinGW-w64, x64)**
-
-```bat
-g++ -shared -O2 -std=c++17 -o OpenccWrapper.dll OpenccWrapper.cpp ^
-  -I . ^
-  -I "C:\Java\zulu17\include" -I "C:\Java\zulu17\include\win32" ^
-  -L . -lopencc_fmmseg_capi ^
-  -static-libstdc++ -static-libgcc ^
-  -s
-```
-
-**Linux (x86_64)**
-
-```bash
-g++ -shared -fPIC -O2 -std=c++17 -o libOpenccWrapper.so OpenccWrapper.cpp   -I . -I "${JAVA_HOME}/include" -I "${JAVA_HOME}/include/linux" -L . -lopencc_fmmseg_capi -Wl,-rpath='$ORIGIN' -Wl,--enable-new-dtags
-```
-
-**macOS (arm64/x86_64)**
-
-```bash
-clang++ -shared -fPIC -O2 -std=c++17 -o libOpenccWrapper.dylib OpenccWrapper.cpp   -I . -I "${JAVA_HOME}/include" -I "${JAVA_HOME}/include/darwin" -L . -lopencc_fmmseg_capi -Wl,-rpath,@loader_path -Wl,-install_name,@rpath/libOpenccWrapper.dylib
-```
-
-Place the resulting native next to the JAR or embed it under `/openccjni/natives/{os}-{arch}/...` in the JAR.
+Custom native builds require both the `opencc_fmmseg_capi` library from the matching
+[`opencc-fmmseg`](https://github.com/laisuk/opencc-fmmseg) release and the `OpenccWrapper` JNI bridge from this
+repository,
+built against the same ABI. Such builds are intended for maintainers and advanced platform ports; the project does not
+currently provide a supported, reproducible native-build procedure for arbitrary toolchains.
 
 ---
 
@@ -418,20 +386,20 @@ bin/openccjni-cli.bat convert -c s2t -i input.txt -o output.txt
 
 ```bash
 bin/openccjni-cli convert --help                                                           
-Usage: openccjni-cli convert [-hpV] [--list-configs] -c=<conversion>
-                             [--con-enc=<encoding>] [-i=<file>]
-                             [--in-enc=<encoding>] [-o=<file>]
+Usage: openccjni-cli convert [-hpV] -c=<conversion> [--con-enc=<encoding>]
+                             [-i=<file>] [--in-enc=<encoding>] [-o=<file>]
                              [--out-enc=<encoding>]
 Convert plain text using OpenccJNI
-  -c, --config=<conversion>  Conversion configuration
+  -c, --config=<conversion>  Conversion configuration.
+                             Supported values: s2t, t2s, s2tw, tw2s, s2twp,
+                               tw2sp, s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp,
+                               tw2t, tw2tp, t2hk, hk2t, t2jp, jp2t
       --con-enc=<encoding>   Console encoding for interactive mode. Ignored if
                                not attached to a terminal. Common <encoding>:
                                UTF-8, GBK, Big5
   -h, --help                 Show this help message and exit.
   -i, --input=<file>         Input file
       --in-enc=<encoding>    Input encoding
-      --list-configs         List all supported OpenccJNI conversion
-                               configurations
   -o, --output=<file>        Output file
       --out-enc=<encoding>   Output encoding
   -p, --punct                Punctuation conversion (default: false)
@@ -448,17 +416,16 @@ bin/openccjni-cli.bat office -c s2t -i book.docx -o book_converted.docx
 
 ```bash
 bin/openccjni-cli office --help 
-Usage: opencccjni-li office [-hpV] [--auto-ext] [--[no-]keep-font] -c=<conversion>
-                        [--format=<format>] -i=<file> [-o=<file>]
+Usage: openccjni-cli office [-hkpV] -c=<conversion> [-f=<format>] -i=<file>
+                            [-o=<file>]
 Convert Office documents using OpenccJNI
-      --auto-ext          Auto-append extension to output file
   -c, --config=<conversion>
                           Conversion configuration
-      --format=<format>   Target Office format (e.g., docx, xlsx, pptx, odt,
+  -f, --format=<format>   Target Office format (e.g., docx, xlsx, pptx, odt,
                             epub)
   -h, --help              Show this help message and exit.
   -i, --input=<file>      Input Office file
-      --[no-]keep-font    Preserve font-family info (default: false)
+  -k, --[no-]keep-font    Preserve font-family info (default: false)
   -o, --output=<file>     Output Office file
   -p, --punct             Punctuation conversion (default: false)
   -V, --version           Print version information and exit.
@@ -467,7 +434,6 @@ Convert Office documents using OpenccJNI
 #### Optional flags:
 
 - `--punct`: Enable punctuation conversion.
-- `--auto-ext`: Auto-append extension like `_converted`.
 - `--keep-font` / `--no-keep-font`: Preserve original fonts (Office only).
 - `--in-enc` / `--out-enc`: Specify encoding (e.g. `GBK`, `BIG5`, `UTF-8`).
 - `--format`: Force document format (e.g., `docx`, `epub`).
@@ -570,7 +536,8 @@ A: No. `OpenCC` auto-loads the native library (system-first, then resource extra
 for advanced cases.
 
 **Q: Can I call it from multiple threads?**  
-A: Yes. The high-level API maintains per-thread JNI contexts, so parallel conversions are safe and efficient.
+A: The static `OpenCC.convert(...)` methods are safe for concurrent use because they maintain per-thread JNI contexts.
+Configured `OpenCC` instances are mutable; confine each instance to one thread or synchronize access externally.
 
 **Q: Where do I put the native DLL/SO/DYLIB if not embedding?**  
 A: On your system library path (`PATH`, `LD_LIBRARY_PATH`, `DYLD_LIBRARY_PATH`), so `System.loadLibrary` can find it.

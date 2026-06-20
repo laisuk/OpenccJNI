@@ -22,6 +22,19 @@ import java.util.Objects;
  */
 public class OpenccWrapper implements AutoCloseable {
 
+    static {
+        try {
+            // 1) Try normal search path (PATH, java.library.path, working dir, etc.)
+            System.loadLibrary("OpenccWrapper");
+        } catch (UnsatisfiedLinkError e) {
+            // 2) Fallback to resources packaged in the JAR
+            NativeLibLoader.loadChain(
+                    "opencc_fmmseg_capi",
+                    "OpenccWrapper"
+            );
+        }
+    }
+
     // ------------------------------------------------------------------------
     // Native method declarations (implemented in the JNI library)
     // ------------------------------------------------------------------------

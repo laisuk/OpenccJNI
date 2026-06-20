@@ -10,9 +10,9 @@ import java.util.concurrent.ConcurrentMap;
  * via the {@code opencc-fmmseg-capi} native library.
  *
  * <p>Provides both static, one-off conversion helpers and an instance API with a persistent
- * conversion profile. The class attempts to load the JNI wrapper {@code OpenccWrapper} from
- * the system first (e.g., {@code PATH}, {@code java.library.path}), and if not found,
- * it falls back to resources embedded in the JAR under:
+ * conversion profile. Native loading is handled by {@link OpenccWrapper}, which searches
+ * the system first (e.g., {@code PATH}, {@code java.library.path}) and then falls back
+ * to resources embedded in the JAR under:
  *
  * <pre>
  * /openccjni/natives/&lt;os&gt;-&lt;arch&gt;/
@@ -40,19 +40,6 @@ import java.util.concurrent.ConcurrentMap;
  * @since 1.0.0
  */
 public final class OpenCC {
-    static {
-        try {
-            // 1) Try normal search path (PATH, java.library.path, working dir, etc.)
-            System.loadLibrary("OpenccWrapper");
-        } catch (UnsatisfiedLinkError e) {
-            // 2) Fallback to resources packaged in the JAR
-            NativeLibLoader.loadChain(
-                    "opencc_fmmseg_capi",
-                    "OpenccWrapper"
-            );
-        }
-    }
-
     /**
      * Thread-local native wrapper for OpenCC (safe for parallel use).
      */
