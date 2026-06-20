@@ -43,6 +43,16 @@ public enum OpenccConfig {
     TW2SP,
 
     /**
+     * Simplified → Traditional (Hong Kong, with phrases).
+     */
+    S2HKP,
+
+    /**
+     * Traditional (Hong Kong, with phrases) → Simplified.
+     */
+    HK2SP,
+
+    /**
      * Simplified → Traditional (Hong Kong).
      */
     S2HK,
@@ -134,9 +144,9 @@ public enum OpenccConfig {
      * {@link OpenccConfig} values
      */
     private static Map<String, OpenccConfig> buildLookup() {
-        OpenccConfig[] all = values();
-        Map<String, OpenccConfig> m = new HashMap<>(all.length);
-        for (OpenccConfig c : all) {
+        Map<String, OpenccConfig> m = new HashMap<>();
+        for (OpenccConfig c : values()) {
+            m.put(c.name().toLowerCase(Locale.ROOT), c);
             m.put(c.toCanonicalName(), c);
         }
         return Collections.unmodifiableMap(m);
@@ -205,7 +215,7 @@ public enum OpenccConfig {
      * (for example {@code "s2t"}, {@code "t2twp"}) and enum-style names
      * (for example {@code "S2T"}, {@code "T2TWP"}).</p>
      *
-     * <p>This method performs no allocation beyond parsing and never throws.</p>
+     * <p>This method performs tolerant parsing and never throws.</p>
      *
      * @param value the configuration string to check; may be {@code null}
      * @return {@code true} if the configuration is valid; {@code false} otherwise
@@ -215,4 +225,3 @@ public enum OpenccConfig {
     }
 
 }
-

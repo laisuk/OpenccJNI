@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.0] - Unreleased
+
+### Added
+
+- Added new conversion configs: `s2hkp` and `hk2sp` 
+
+### Changed
+
+- Update `opencc-fmmseg-capi` to v0.11.1
+- CLI: Optimized subcommand `openccjni-cli office`.
+
+---
+
 ## [1.2.2] - 2026-04-25
 
 ### Fixed
