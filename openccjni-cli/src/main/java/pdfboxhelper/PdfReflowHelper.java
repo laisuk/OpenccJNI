@@ -115,6 +115,7 @@ public final class PdfReflowHelper {
      * @param text             raw text extracted from PDF
      * @param addPdfPageHeader whether to keep PDF page headers (=== [Page 1/10] ===)
      * @param compact          true = "p1\np2\np3", false = "p1\n\np2\n\np3"
+     * @return reflowed paragraph text
      */
     public static String reflowCjkParagraphs(String text, boolean addPdfPageHeader, boolean compact) {
         Objects.requireNonNull(text, "text must not be null");
@@ -284,39 +285,35 @@ public final class PdfReflowHelper {
                 // else: fall through -> normal merge logic below
             }
 
-            // Finalizer: strong sentence end → flush immediately. Do not remove.
-            // If the current line completes a strong sentence, append it and flush immediately.
-            // Allow forced flush for very long buffers even if bracket state is broken,
-            // to recover from OCR/author unmatched bracket typos.
-            if (buffer.length() > 0
-                    && !dialogState.isUnclosed()
-                    && (!hasUnclosedBracket || buffer.length() > 120)) {
-                if (PunctSets.tryGetLastNonWhitespace(stripped, lastRef)
-                        && PunctSets.isStrongSentenceEnd(lastRef.value)) {
-                    buffer.append(stripped);          // buffer now has new value
-                    segments.add(buffer.toString());  // emit UPDATED bufferText, not old bufferText
-                    buffer.setLength(0);              // clear buffer
-                    dialogState.reset();
-                    continue;
-                }
-            }
-
-            // ------ Buffer first line ------
-            if (buffer.length() == 0) {
-                // Start new paragraph
-                buffer.append(stripped);
-                dialogState.reset();
-                dialogState.update(stripped);
-                continue;
-            }
+            // Precompute last non-whitespace once for this line
+            boolean hasLast = PunctSets.tryGetLastNonWhitespace(stripped, lastIdxRef);
+            boolean strippedEndsWithDialogCloser =PunctSets.endsWithDialogCloser(stripped);
+            boolean strippedHasUnclosedBracket = PunctSets.hasUnclosedBracket(stripped);
+            boolean strippedHasUnclosedDialogQuote = PunctSets.hasUnclosedDialogQuote(stripped);
+            boolean strippedEndsWithStrongSentenceEnd =
+                    hasLast && PunctSets.isStrongSentenceEnd(lastIdxRef.ch);
+            boolean strippedIsCompleteStandalone = strippedEndsWithStrongSentenceEnd
+                    || PunctSets.endsWithColonLike(stripped)
+                    || PunctSets.endsWithEllipsis(stripped);
 
             // Check dialog start
             boolean currentIsDialogStart = PunctSets.isDialogStarter(stripped);
 
-            // 🔸 NEW RULE: If previous line ends with comma,
-            //     do NOT flush even if this line starts dialog.
-            //     (comma-ending means the sentence is not finished)
+            // 9a) Dialog start
             if (currentIsDialogStart) {
+                // 9a-0) Complete single-line dialog.
+                if (strippedEndsWithDialogCloser
+                        && !strippedHasUnclosedBracket
+                        && !strippedHasUnclosedDialogQuote) {
+                    if (!bufferText.isEmpty()) {
+                        segments.add(bufferText);
+                        buffer.setLength(0);
+                    }
+
+                    segments.add(stripped);
+                    dialogState.reset();
+                    continue;
+                }
 
                 boolean shouldFlushPrev = !bufferText.isEmpty();
 
@@ -324,20 +321,13 @@ public final class PdfReflowHelper {
                     if (dialogState.isUnclosed() || hasUnclosedBracket) {
                         shouldFlushPrev = false;
                     } else if (!PunctSets.tryGetLastNonWhitespace(bufferText, lastRef)) {
-                        // whitespace-only buffer → treat as empty
                         shouldFlushPrev = false;
                     } else {
                         char last = lastRef.value;
 
-                        // 1) comma-like → continuation
-                        if (PunctSets.isCommaLike(last)) {
+                        if (PunctSets.isCommaLike(last) || CjkText.isCjk(last)) {
                             shouldFlushPrev = false;
                         }
-                        // 2) ends with CJK ideograph (NO punctuation at all) → continuation
-                        else if (CjkText.isCjk(last)) {
-                            shouldFlushPrev = false;
-                        }
-                        // else: punctuation or ASCII letter/digit → allow flush
                     }
                 }
 
@@ -346,10 +336,37 @@ public final class PdfReflowHelper {
                     buffer.setLength(0);
                 }
 
-                // Start (or continue) the dialog paragraph
                 buffer.append(stripped);
                 dialogState.reset();
                 dialogState.update(stripped);
+                continue;
+            }
+
+            // Finalizer: strong sentence end → flush immediately.
+            // Exclude dialog-closer lines; 9b handles those with stricter dialog safety.
+            if (buffer.length() > 0
+                    && !strippedEndsWithDialogCloser
+                    && !dialogState.isUnclosed()
+                    && (!hasUnclosedBracket || buffer.length() > 120)
+                    && !strippedHasUnclosedDialogQuote
+                    && strippedIsCompleteStandalone) {
+                buffer.append(stripped);
+                segments.add(buffer.toString());
+                buffer.setLength(0);
+                dialogState.reset();
+                continue;
+            }
+
+            // Complete standalone sentence line.
+            // If there is no active buffer and this line is already complete,
+            // emit it directly instead of waiting for the next line.
+            if (buffer.length() == 0
+                    && !strippedEndsWithDialogCloser
+                    && !strippedHasUnclosedBracket
+                    && !strippedHasUnclosedDialogQuote
+                    && strippedIsCompleteStandalone) {
+                segments.add(stripped);
+                dialogState.reset();
                 continue;
             }
 
@@ -363,29 +380,30 @@ public final class PdfReflowHelper {
             // - fallback: if the buffer is already long enough (> 120) and this line ends at a
             //   strong dialog boundary, allow flush to stop runaway buffer growth caused by
             //   missing opening quotes or cross-page broken quoted text
-            if (PunctSets.tryGetLastNonWhitespace(stripped, lastIdxRef) &&
-                    PunctSets.isDialogCloser(lastIdxRef.ch)) {
-
-                // Check punctuation right before the closer (e.g. “？” / “。”)
+            if (strippedEndsWithDialogCloser) {
                 boolean punctBeforeCloserIsStrong =
                         PunctSets.tryGetPrevNonWhitespace(stripped, lastIdxRef.index, prevRef) &&
                                 PunctSets.isClauseOrEndPunct(prevRef.value);
 
-                // Snapshot bracket safety BEFORE appending current line
-                boolean lineHasBracketIssue = PunctSets.hasUnclosedBracket(stripped);
-
                 buffer.append(stripped);
                 dialogState.update(stripped);
 
-                if (!dialogState.isUnclosed() && (
-                        !hasUnclosedBracket ||
-                                lineHasBracketIssue ||
-                                (punctBeforeCloserIsStrong && buffer.length() > 120))) {
+                if (!dialogState.isUnclosed()
+                        && punctBeforeCloserIsStrong
+                        && (!hasUnclosedBracket || strippedHasUnclosedBracket || buffer.length() > 120)) {
                     segments.add(buffer.toString());
                     buffer.setLength(0);
                     dialogState.reset();
                 }
 
+                continue;
+            }
+
+            // ------ Buffer first line ------
+            if (buffer.length() == 0) {
+                buffer.append(stripped);
+                dialogState.reset();
+                dialogState.update(stripped);
                 continue;
             }
 
@@ -473,6 +491,10 @@ public final class PdfReflowHelper {
 
     /**
      * Default: novel mode (with blank line between paragraphs).
+     *
+     * @param text             raw text extracted from PDF
+     * @param addPdfPageHeader whether to keep PDF page headers
+     * @return reflowed paragraph text with blank lines between paragraphs
      */
     @SuppressWarnings("unused")
     public static String reflowCjkParagraphs(String text, boolean addPdfPageHeader) {
