@@ -24,7 +24,8 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 /**
- * Utility class for converting Office-based document formats using OpenCC logic.
+ * Utility class for converting text in Office, OpenDocument, and EPUB documents
+ * using OpenCC.
  *
  * <p>Supported formats include:
  * <ul>
@@ -33,14 +34,16 @@ import java.util.zip.ZipOutputStream;
  *   <li>EPUB eBooks: {@code .epub}</li>
  * </ul>
  *
- * <p>Internally, the class handles these formats as ZIP archives, extracts and processes
- * their XML/XHTML content, applies OpenCC transformations, and repackages the result.
+ * <p>Internally, the class handles these formats as ZIP archives, extracts selected
+ * XML/XHTML content containing user-visible text, applies OpenCC transformations,
+ * and repackages the result.
  *
  * <p>This class is designed for use in batch or CLI applications.
  */
 public class OfficeHelper {
     /**
-     * Unmodifiable list of supported file extensions for Office and EPUB documents.
+     * Unmodifiable list of supported lowercase file extensions, without leading dots,
+     * for Office, OpenDocument, and EPUB documents.
      */
     public static final List<String> OFFICE_FORMATS = Collections.unmodifiableList(
             Arrays.asList("docx", "xlsx", "pptx", "odt", "ods", "odp", "epub")
@@ -122,9 +125,10 @@ public class OfficeHelper {
      * was performed on files ({@link FileResult}) or in-memory data
      * ({@link MemoryResult}).</p>
      *
-     * <p>The {@code success} flag indicates whether the conversion completed
-     * without errors, while {@code message} contains any accompanying description,
-     * such as warnings, error information, or status notes.</p>
+     * <p>The {@code success} flag indicates whether the requested operation produced
+     * a result, while {@code message} contains an accompanying description, such as
+     * warnings, error information, or status notes. Non-fatal cleanup problems may be
+     * logged without changing a successful result.</p>
      */
     public abstract static class Result {
         /**
@@ -218,16 +222,20 @@ public class OfficeHelper {
      *   <li>Optionally extracts and preserves font markup using format-specific patterns</li>
      *   <li>Applies OpenCC text conversion to each content fragment</li>
      *   <li>Restores any preserved font tags if {@code keepFont} is enabled</li>
-     *   <li>Re-packages the modified directory structure into a new ZIP (DOCX/ODT/EPUB) byte array</li>
+     *   <li>Repackages the modified directory structure in its original ZIP-based document format</li>
      * </ol>
      *
-     * <p>Unlike {@link FileResult}, this method returns the converted document entirely
-     * in memory as a {@link MemoryResult}. This makes it suitable for server-side,
-     * streaming, or JNI/Blazor/WASM workflows where file I/O is unnecessary.</p>
+     * <p>Unlike the file-based overload, this method accepts and returns document bytes,
+     * avoiding caller-managed input and output files. The implementation still uses a
+     * temporary directory and temporary output file while processing the archive and is
+     * not a streaming API.</p>
      *
-     * @param inputBytes  the input Office/EPUB file as a byte array
-     * @param format      the file format (e.g., {@code docx}, {@code odt}, {@code epub})
-     * @param converter   the {@link OpenCC} instance used for text conversion
+     * @param inputBytes  the input Office/EPUB file as a byte array; must not be
+     *                    {@code null} or empty
+     * @param format      the case-sensitive lowercase file extension without a leading dot
+     *                    (for example, {@code docx}, {@code odt}, or {@code epub})
+     * @param converter   the {@link OpenCC} instance used for text conversion; must not be
+     *                    {@code null}
      * @param punctuation whether to convert punctuation characters
      * @param keepFont    whether to preserve font tags/markup during text replacement
      * @return a {@link MemoryResult} indicating success or failure; on success,
@@ -352,18 +360,23 @@ public class OfficeHelper {
      * writes the converted bytes to the specified output file.</p>
      *
      * <p>Unlike {@link MemoryResult}, this file-based overload does not expose the
-     * converted document bytes in memory. It is intended for scenarios where
-     * file-in / file-out processing is sufficient and more memory efficient.</p>
+     * converted document bytes to the caller. It is intended for scenarios where a
+     * file-in/file-out API is more convenient. Internally, it still buffers the complete
+     * input and converted output in memory.</p>
      *
-     * @param inputFile   the input Office or EPUB file
-     * @param outputFile  the destination file to write the converted result
-     * @param format      the file format (e.g., {@code docx}, {@code odt}, {@code epub})
-     * @param converter   the {@link OpenCC} instance to use for conversion
+     * @param inputFile   the input Office or EPUB file; must not be {@code null}
+     * @param outputFile  the destination file to write the converted result; must not be
+     *                    {@code null}
+     * @param format      the case-sensitive lowercase file extension without a leading dot
+     *                    (for example, {@code docx}, {@code odt}, or {@code epub})
+     * @param converter   the {@link OpenCC} instance to use for conversion; must not be
+     *                    {@code null}
      * @param punctuation whether to convert punctuation characters
      * @param keepFont    whether to preserve font tags/markup during conversion
      * @return a {@link FileResult} indicating success or failure; on success, the
      * converted document is written to {@code outputFile}, and no in-memory
      * payload is retained
+     * @throws NullPointerException if {@code inputFile} is {@code null}
      */
     public static FileResult convert(
             File inputFile,
@@ -464,6 +477,8 @@ public class OfficeHelper {
      * @param sourcePath  the path to a file or directory to archive
      * @param zipFilePath the destination ZIP file path
      * @throws IOException if an error occurs during zipping
+     * @throws IllegalArgumentException if {@code sourcePath} is neither a regular file
+     *                                  nor a directory
      */
     public static void zip(Path sourcePath, Path zipFilePath) throws IOException {
         Path parentDir = zipFilePath.getParent();
