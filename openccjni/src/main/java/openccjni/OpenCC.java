@@ -114,7 +114,7 @@ public final class OpenCC {
      * and an error is recorded.</p>
      *
      * @param configId OpenCC config id; may be {@code null}
-     * @since 1.0.0
+     * @since 1.2.0
      */
     public OpenCC(OpenccConfig configId) {
         if (configId == null) {
@@ -144,7 +144,7 @@ public final class OpenCC {
      *
      * @param configId config id; may be {@code null}
      * @return instance
-     * @since 1.0.0
+     * @since 1.2.0
      */
     public static OpenCC fromConfig(OpenccConfig configId) {
         return new OpenCC(configId);
@@ -233,7 +233,7 @@ public final class OpenCC {
      * @return converted text; {@code null} if {@code input} is null; {@code ""}
      * if {@code input} is empty; {@code input} unchanged if {@code configId} is null
      * or cannot be resolved to a native config id
-     * @since 1.0.0
+     * @since 1.2.0
      */
     public static String convert(String input, OpenccConfig configId, boolean punctuation) {
         if (input == null) {
@@ -262,10 +262,12 @@ public final class OpenCC {
     }
 
     /**
-     * Checks whether the provided text contains Chinese characters.
+     * Classifies the provided text as Traditional Chinese, Simplified Chinese,
+     * or mixed/undetermined.
      *
      * @param text input text (maybe null/empty)
-     * @return integer flag from native layer; 0 if none detected
+     * @return {@code 1} for Traditional Chinese, {@code 2} for Simplified Chinese,
+     * or {@code 0} for mixed/undetermined input (including null or empty input)
      * @since 1.0.0
      */
     public static int zhoCheck(String text) {
@@ -278,9 +280,10 @@ public final class OpenCC {
     }
 
     /**
-     * Checks whether global parallel conversion mode is enabled.
+     * Checks whether parallel conversion mode is enabled for the current thread's
+     * thread-local native wrapper.
      *
-     * @return true if enabled
+     * @return {@code true} if parallel conversion is enabled for the current thread
      * @since 1.0.2
      */
     public static boolean isParallel() {
@@ -288,9 +291,12 @@ public final class OpenCC {
     }
 
     /**
-     * Enables/disables the global parallel conversion mode.
+     * Enables or disables parallel conversion mode for the current thread's
+     * thread-local native wrapper.
      *
-     * @param isParallel true to enable
+     * <p>This setting does not affect wrappers owned by other threads.</p>
+     *
+     * @param isParallel {@code true} to enable parallel conversion for the current thread
      * @since 1.0.2
      */
     public static void setParallel(boolean isParallel) {
@@ -376,7 +382,7 @@ public final class OpenCC {
      * Returns the strongly-typed configuration id used by this instance.
      *
      * @return config id, never null
-     * @since 1.0.0
+     * @since 1.2.0
      */
     public OpenccConfig getConfigId() {
         return this.configId;
@@ -425,7 +431,7 @@ public final class OpenCC {
      * <p>If null, defaults to {@code "s2t"} and records an error.</p>
      *
      * @param configId config id; may be null
-     * @since 1.0.0
+     * @since 1.2.0
      */
     public void setConfig(OpenccConfig configId) {
         if (configId == null) {

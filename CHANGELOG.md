@@ -10,19 +10,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Added new conversion configs: `s2hkp`, `hk2sp`, `t2hkp` and `hk2tp`. 
+- Added Hong Kong phrase conversion configs: `s2hkp`, `hk2sp`, `t2hkp`, and `hk2tp`.
+- Added Java bytecode-version metadata to generated JAR manifests.
 
 ### Changed
 
-- Update `opencc-fmmseg-capi` to v0.11.5
-- CLI: Optimized subcommand `openccjni-cli office`.
+- Updated `opencc-fmmseg-capi` and the bundled dictionary data to v0.11.5.
+- Improved CJK PDF paragraph reflow, including dialog, list-item, punctuation, and bracket-boundary handling.
+- Allowed text extraction from protected PDFs when accessibility extraction is permitted.
+- Improved the `openccjni-cli office` subcommand.
+- Improved Windows and Bash launchers, including Java 8 Unicode-path handling and Git Bash/MSYS classpath compatibility.
 - Restored native loading to `OpenccWrapper` and clarified thread-safety and custom-native guidance.
-- Improved package JavaDoc and corrected Java API `@since` metadata.
+- Improved package Javadoc and corrected Java API `@since` metadata.
 
 ### Fixed
 
 - Made `OfficeHelper.OFFICE_FORMATS` immutable and enforced conversion-result invariants.
-- Propagated ZIP entry failures instead of silently producing incomplete archives.
+- Propagated ZIP-entry failures instead of silently producing incomplete archives.
 
 ---
 
@@ -44,8 +48,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   invalid-configuration inputs.
 
 - Reduced `OpenccConfig` lookup initialization overhead by removing redundant lowercase key insertion.
-- Revalidated Java/JNI error handling against updated `opencc-fmmseg-capi` v0.9.2 headers and added regression tests
-  for invalid-config recovery and native no-error sentinel normalization.
+- Revalidated Java/JNI error handling against updated `opencc-fmmseg-capi` v0.9.2 headers and added regression tests for
+  invalid-config recovery and native no-error sentinel normalization.
 - Update `opencc-fmmseg-capi` native to `v0.9.2`
 
 ---

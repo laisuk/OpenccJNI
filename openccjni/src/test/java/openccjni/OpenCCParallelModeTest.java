@@ -17,12 +17,12 @@ class OpenCCParallelModeTest {
 
     @AfterEach
     void restoreOriginal() {
-        // Ensure we leave global state as we found it.
+        // Ensure we leave the current thread's wrapper state as we found it.
         OpenCC.setParallel(original);
     }
 
     @Test
-    @DisplayName("1) setParallel(true) enables global parallel mode")
+    @DisplayName("1) setParallel(true) enables parallel mode for the current thread")
     void enablesParallel() {
         OpenCC.setParallel(false);
         assertFalse(OpenCC.isParallel(), "precondition: expected false");
@@ -32,7 +32,7 @@ class OpenCCParallelModeTest {
     }
 
     @Test
-    @DisplayName("2) setParallel(false) disables global parallel mode")
+    @DisplayName("2) setParallel(false) disables parallel mode for the current thread")
     void disablesParallel() {
         OpenCC.setParallel(true);
         assertTrue(OpenCC.isParallel(), "precondition: expected true");
@@ -56,7 +56,7 @@ class OpenCCParallelModeTest {
     }
 
     @Test
-    @DisplayName("4) isParallel reflects the most recent global set")
+    @DisplayName("4) isParallel reflects the current thread's most recent setting")
     void reflectsMostRecentSet() {
         OpenCC.setParallel(false);
         assertFalse(OpenCC.isParallel());

@@ -9,6 +9,8 @@ import java.util.*;
  * covering Simplified ↔ Traditional Chinese and region-specific variants
  * (Taiwan, Hong Kong, Japan). The {@code p} suffix indicates that
  * phrase-level mappings are also applied.</p>
+ *
+ * @since 1.2.0
  */
 public enum OpenccConfig {
 

@@ -286,8 +286,8 @@ public class OpenccWrapper implements AutoCloseable {
     /**
      * Resolves a canonical OpenCC configuration name to its numeric configuration id.
      *
-     * <p>This method is tolerant: it returns {@code -1} for null/blank/unknown inputs
-     * and never throws.</p>
+     * <p>This method is tolerant while the wrapper is open: it returns {@code -1}
+     * for null, blank, or unknown inputs.</p>
      *
      * <p>Input is expected to be an OpenCC canonical name (lowercase), e.g. {@code "s2twp"}.
      * If you want to accept enum-style or mixed-case inputs, normalize using
@@ -295,6 +295,7 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param canonicalName canonical config name (e.g. {@code "s2twp"}); may be null
      * @return numeric config id (opencc_config_t), or {@code -1} if invalid/unknown
+     * @throws IllegalStateException if this wrapper has been closed
      * @since 1.2.0
      */
     public int configNameToId(String canonicalName) {
