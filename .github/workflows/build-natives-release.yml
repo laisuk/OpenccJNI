@@ -11,7 +11,10 @@ permissions:
 
 env:
   CPP_SRC: openccjni/src/main/java/openccjni/OpenccWrapper.cpp
-  JAVA_SRC_CLASS: openccjni/src/main/java/openccjni/OpenccWrapper.java openccjni/src/main/java/openccjni/OpenccConfig.java
+  JAVA_SRC_CLASS: >
+    openccjni/src/main/java/openccjni/OpenccWrapper.java
+    openccjni/src/main/java/openccjni/OpenccConfig.java
+    openccjni/src/main/java/openccjni/NativeLibLoader.java
 
   CAPI_INCLUDE: openccjni/src/main/java/openccjni
 
