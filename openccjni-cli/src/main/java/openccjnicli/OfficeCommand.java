@@ -21,7 +21,10 @@ public class OfficeCommand implements Runnable {
     @Option(names = {"-o", "--output"}, paramLabel = "<file>", description = "Output Office file")
     private File output;
 
-    @Option(names = {"-c", "--config"}, paramLabel = "<conversion>", description = "Conversion configuration", required = true)
+    @Option(names = {"-c", "--config"}, paramLabel = "<conversion>", description = {
+            "Conversion configuration.",
+            "Supported values: ${COMPLETION-CANDIDATES}"
+    }, completionCandidates = CliUtils.ConfigCandidates.class, required = true)
     private String config;
 
     @Option(names = {"-p", "--punct"}, description = "Punctuation conversion (default: false)")

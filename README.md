@@ -37,7 +37,7 @@ conversion. It ships with a Java API and loads a native library at runtime.
 
 ```kotlin
 dependencies {
-    implementation("io.github.laisuk:openccjni:1.2.2")
+    implementation("io.github.laisuk:openccjni:1.3.0")
 }
 ```
 
@@ -48,7 +48,7 @@ dependencies {
 <dependency>
     <groupId>io.github.laisuk</groupId>
     <artifactId>openccjni</artifactId>
-    <version>1.2.2</version>
+    <version>1.3.0</version>
 </dependency>
 ```
 
@@ -94,8 +94,9 @@ externally synchronized.
 
 ```
 s2t, t2s, s2tw, tw2s, s2twp, tw2sp,
-s2hk, hk2s, t2tw, t2twp, t2hk,
-tw2t, tw2tp, hk2t, t2jp, jp2t
+s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp,
+tw2t, tw2tp, t2hk, t2hkp, hk2t, hk2tp,
+t2jp, jp2t
 ```
 
 Example:
@@ -186,9 +187,8 @@ components manually.
 
 Custom native builds require both the `opencc_fmmseg_capi` library from the matching
 [`opencc-fmmseg`](https://github.com/laisuk/opencc-fmmseg) release and the `OpenccWrapper` JNI bridge from this
-repository,
-built against the same ABI. Such builds are intended for maintainers and advanced platform ports; the project does not
-currently provide a supported, reproducible native-build procedure for arbitrary toolchains.
+repository, built against the same ABI. Such builds are intended for maintainers and advanced platform ports; the
+project does not currently provide a supported, reproducible native-build procedure for arbitrary toolchains.
 
 ---
 
@@ -240,11 +240,11 @@ openccjni/
 
 ## 📖 Public API
 
-The main public entry point is [`OpenCC`](openccjni/src/main/java/openccjni/OpenCC.java).
-The strongly typed config enum is
+The main public entry point is [`OpenCC`](openccjni/src/main/java/openccjni/OpenCC.java). The strongly typed config enum
+is
 [`OpenccConfig`](openccjni/src/main/java/openccjni/OpenccConfig.java). The lower-level
-[`OpenccWrapper`](openccjni/src/main/java/openccjni/OpenccWrapper.java) class is also public,
-but it is a JNI bridge intended mainly for advanced use.
+[`OpenccWrapper`](openccjni/src/main/java/openccjni/OpenccWrapper.java) class is also public, but it is a JNI bridge
+intended mainly for advanced use.
 
 ### `OpenCC` static API
 
@@ -330,9 +330,11 @@ The following configuration keys are recognized (matching OpenCC profiles
 - `s2t` – Simplified → Traditional
 - `t2s` – Traditional → Simplified
 - `s2tw`, `tw2s`, `s2twp`, `tw2sp` – Taiwan variants
-- `s2hk`, `hk2s` – Hong Kong variants
+- `s2hk`, `hk2s` – Simplified ↔ Hong Kong variants
+- `s2hkp`, `hk2sp` – Simplified ↔ Hong Kong variants, with phrases
 - `t2tw`, `tw2t`, `t2twp`, `tw2tp` – Traditional ↔ Taiwan
-- `t2hk`, `hk2t` – Traditional ↔ Hong Kong
+- `t2hk`, `hk2t` – Traditional ↔ Hong Kong variants
+- `t2hkp`, `hk2tp` – Traditional ↔ Hong Kong variants, with phrases
 - `t2jp`, `jp2t` – Traditional ↔ Japanese
 
 ### Sample Code
@@ -393,7 +395,8 @@ Convert plain text using OpenccJNI
   -c, --config=<conversion>  Conversion configuration.
                              Supported values: s2t, t2s, s2tw, tw2s, s2twp,
                                tw2sp, s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp,
-                               tw2t, tw2tp, t2hk, hk2t, t2jp, jp2t
+                               tw2t, tw2tp, t2hk, t2hkp, hk2t, hk2tp, t2jp,
+                               jp2t
       --con-enc=<encoding>   Console encoding for interactive mode. Ignored if
                                not attached to a terminal. Common <encoding>:
                                UTF-8, GBK, Big5
@@ -420,7 +423,10 @@ Usage: openccjni-cli office [-hkpV] -c=<conversion> [-f=<format>] -i=<file>
                             [-o=<file>]
 Convert Office documents using OpenccJNI
   -c, --config=<conversion>
-                          Conversion configuration
+                          Conversion configuration.
+                          Supported values: s2t, t2s, s2tw, tw2s, s2twp, tw2sp,
+                            s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp, tw2t, tw2tp,
+                            t2hk, t2hkp, hk2t, hk2tp, t2jp, jp2t
   -f, --format=<format>   Target Office format (e.g., docx, xlsx, pptx, odt,
                             epub)
   -h, --help              Show this help message and exit.
@@ -456,8 +462,10 @@ Usage: openccjni-cli pdf [-ehHprV] [--compact] [-c=<conversion>] -i=<file>
 Extract PDF text, optionally reflow CJK paragraphs, then convert with
 OpenccJNI                                                                                                                                                        
   -c, --config=<conversion>
-                        OpenCC conversion configuration (e.g. s2t, t2s, s2tw,
-                          t2hk, t2jp, ...)
+                        Conversion configuration.
+                        Supported values: s2t, t2s, s2tw, tw2s, s2twp, tw2sp,
+                          s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp, tw2t, tw2tp,
+                          t2hk, t2hkp, hk2t, hk2tp, t2jp, jp2t
       --compact         Compact / tighten paragraph gaps after reflow (default:
                           false)
   -e, --extract         Extract text from PDF document only (default: false)

@@ -43,14 +43,14 @@ public enum OpenccConfig {
     TW2SP,
 
     /**
-     * Simplified → Traditional (Hong Kong, with phrases).
+     * Simplified Chinese → Hong Kong variant (with phrases).
      *
      * @since 1.3.0
      */
     S2HKP,
 
     /**
-     * Traditional (Hong Kong, with phrases) → Simplified.
+     * Hong Kong variant → Simplified Chinese (with phrases).
      *
      * @since 1.3.0
      */
@@ -92,9 +92,23 @@ public enum OpenccConfig {
     T2HK,
 
     /**
+     * Traditional Chinese → Hong Kong variant (with phrases).
+     *
+     * @since 1.3.0
+     */
+    T2HKP,
+
+    /**
      * Traditional (Hong Kong) → Traditional.
      */
     HK2T,
+
+    /**
+     * Hong Kong variant → Traditional Chinese (with phrases).
+     *
+     * @since 1.3.0
+     */
+    HK2TP,
 
     /**
      * Traditional → Japanese Shinjitai.

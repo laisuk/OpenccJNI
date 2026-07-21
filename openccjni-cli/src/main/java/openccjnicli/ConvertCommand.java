@@ -9,7 +9,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -27,17 +26,8 @@ public class ConvertCommand implements Runnable {
     @Option(names = {"-c", "--config"}, paramLabel = "<conversion>", description = {
             "Conversion configuration.",
             "Supported values: ${COMPLETION-CANDIDATES}"
-    }, completionCandidates = ConfigCandidates.class, required = true)
+    }, completionCandidates = CliUtils.ConfigCandidates.class, required = true)
     private String config;
-
-    /** Supplies Picocli help and shell completion from OpenCC's canonical config list. */
-    public static final class ConfigCandidates extends ArrayList<String> {
-        private static final long serialVersionUID = 1L;
-
-        public ConfigCandidates() {
-            super(OpenCC.getSupportedConfigs());
-        }
-    }
 
     @Option(names = {"-p", "--punct"}, description = "Punctuation conversion (default: false)")
     private boolean punct;

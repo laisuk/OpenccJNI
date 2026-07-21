@@ -125,7 +125,6 @@ public class OpenCCTests {
         // Assertions
         assertNotNull(output);
         assertEquals(input.length(), output.length()); // rough check, assuming 1:1 mapping
-        System.out.println("s2t() conversion of 100K chars completed in " + durationMs + " ms");
     }
 
     @Test
@@ -134,7 +133,6 @@ public class OpenCCTests {
         assertEquals("s2t", bad.getConfig());
         assertEquals("測試", bad.convert("测试"));
         assertNotNull(OpenCC.getLastError());
-        System.out.println("Last Error: " + OpenCC.getLastError());
     }
 
     @Test

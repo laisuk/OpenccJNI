@@ -6,15 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.3.0] - Unreleased
+## [1.3.0] - 2026-07-22
 
 ### Added
 
-- Added new conversion configs: `s2hkp` and `hk2sp` 
+- Added new conversion configs: `s2hkp`, `hk2sp`, `t2hkp` and `hk2tp`. 
 
 ### Changed
 
-- Update `opencc-fmmseg-capi` to v0.11.1
+- Update `opencc-fmmseg-capi` to v0.11.5
 - CLI: Optimized subcommand `openccjni-cli office`.
 - Restored native loading to `OpenccWrapper` and clarified thread-safety and custom-native guidance.
 - Improved package JavaDoc and corrected Java API `@since` metadata.

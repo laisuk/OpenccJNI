@@ -58,7 +58,11 @@ public class PdfCommand implements Runnable {
     @Option(
             names = {"-c", "--config"},
             paramLabel = "<conversion>",
-            description = "OpenCC conversion configuration (e.g. s2t, t2s, s2tw, t2hk, t2jp, ...)"
+            description = {
+                    "Conversion configuration.",
+                    "Supported values: ${COMPLETION-CANDIDATES}"
+            },
+            completionCandidates = CliUtils.ConfigCandidates.class
     )
     private String config;
 
@@ -81,7 +85,7 @@ public class PdfCommand implements Runnable {
     private boolean reflow;
 
     @Option(
-            names = {"--compact"},
+            names = {"-C", "--compact"},
             description = "Compact / tighten paragraph gaps after reflow (default: false)"
     )
     private boolean compact;
