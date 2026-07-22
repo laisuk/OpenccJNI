@@ -80,7 +80,7 @@ public final class OpenCC implements AutoCloseable {
      * @since 1.0.0
      */
     public OpenCC() {
-        this(OpenccConfig.defaultConfig(), Collections.<CustomDictSpec>emptyList());
+        this(OpenccConfig.defaultConfig(), Collections.emptyList());
     }
 
     /**
@@ -97,7 +97,7 @@ public final class OpenCC implements AutoCloseable {
      * @since 1.0.0
      */
     public OpenCC(String config) {
-        this(configOrDefault(config), Collections.<CustomDictSpec>emptyList());
+        this(configOrDefault(config), Collections.emptyList());
         if (OpenccConfig.tryParse(config) == null) {
             setLastError("Invalid config: " + config);
         }
@@ -113,7 +113,7 @@ public final class OpenCC implements AutoCloseable {
      * @since 1.2.0
      */
     public OpenCC(OpenccConfig configId) {
-        this(configId, Collections.<CustomDictSpec>emptyList());
+        this(configId, Collections.emptyList());
     }
 
     /**

@@ -1,6 +1,5 @@
 package openccjni;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Objects;
@@ -10,25 +9,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class OpenCCTests {
-    static OpenCC opencc1;
-    static OpenCC opencc2;
-
-    @BeforeAll
-    static void init() {
-        opencc1 = new OpenCC();
-        opencc2 = new OpenCC("s2t");
-
-    }
-
     @Test
     void testConvertS2T() {
-        String simplified = "简体中文测试";
-        String expectedTraditional = "簡體中文測試"; // Ensure your dictionary has these mappings
-        String result = opencc1.convert(simplified);
+        try (OpenCC opencc1 = new OpenCC()) {
+            String simplified = "简体中文测试";
+            String expectedTraditional = "簡體中文測試"; // Ensure your dictionary has these mappings
+            String result = opencc1.convert(simplified);
 
-        assertEquals(expectedTraditional, result);
-        assertNotNull(result);
-        assertTrue(result.contains("簡"), "Should contain converted character");
+            assertTrue(OpenCC.isSupportedConfig(opencc1.getConfig()));
+            assertTrue(OpenCC.isSupportedConfig(opencc1.getConfigId().toCanonicalName()));
+            assertEquals(expectedTraditional, result);
+            assertNotNull(result);
+            assertTrue(result.contains("簡"), "Should contain converted character");
+        }
     }
 
     @Test
@@ -44,12 +37,14 @@ public class OpenCCTests {
 
     @Test
     void testPunctuationConversionS2T() {
-        String input = "“你好”";
-        opencc2.setConfig("s2tw");
-        String result1 = opencc2.convert(input, true);
-        assertEquals("「你好」", result1);
-        String result2 = OpenCC.convert(input, "s2t", true);
-        assertEquals("「你好」", result2);
+        try (OpenCC opencc2 = new OpenCC("s2t")) {
+            String input = "“你好”";
+            opencc2.setConfig("s2tw");
+            String result1 = opencc2.convert(input, true);
+            assertEquals("「你好」", result1);
+            String result2 = OpenCC.convert(input, "s2t", true);
+            assertEquals("「你好」", result2);
+        }
     }
 
     @Test
@@ -65,21 +60,23 @@ public class OpenCCTests {
 
     @Test
     void testNullInputInstanceConvert() {
-        // --- convert(String) ---
-        OpenCC.setLastError(null);
+        try (OpenCC opencc1 = new OpenCC()) {
+            // --- convert(String) ---
+            OpenCC.setLastError(null);
 
-        String r1 = opencc1.convert(null);
+            String r1 = opencc1.convert(null);
 
-        assertNull(r1, "Null input should return null");
-        assertEquals("Input is null", OpenCC.getLastError());
+            assertNull(r1, "Null input should return null");
+            assertEquals("Input is null", OpenCC.getLastError());
 
-        // --- convert(String, boolean) ---
-        OpenCC.setLastError(null);
+            // --- convert(String, boolean) ---
+            OpenCC.setLastError(null);
 
-        String r2 = opencc1.convert(null, true);
+            String r2 = opencc1.convert(null, true);
 
-        assertNull(r2, "Null input should return null");
-        assertEquals("Input is null", OpenCC.getLastError());
+            assertNull(r2, "Null input should return null");
+            assertEquals("Input is null", OpenCC.getLastError());
+        }
     }
 
     @Test
@@ -105,58 +102,64 @@ public class OpenCCTests {
 
     @Test
     public void testS2T_100kCharacters() {
-        // Generate 100,000 characters from a repeated simplified phrase
-        String base = "汉字转换";
-        StringBuilder inputBuilder = new StringBuilder(100_000);
-        while (inputBuilder.length() < 100_000) {
-            inputBuilder.append(base);
-        }
-        String input = inputBuilder.toString();
+        try (OpenCC opencc1 = new OpenCC()) {
+            // Generate 100,000 characters from a repeated simplified phrase
+            String base = "汉字转换";
+            StringBuilder inputBuilder = new StringBuilder(100_000);
+            while (inputBuilder.length() < 100_000) {
+                inputBuilder.append(base);
+            }
+            String input = inputBuilder.toString();
 
-        // Time the conversion
-        long start = System.nanoTime();
-        String config = opencc1.getConfig();
-        if (!Objects.equals(config, "s2t")) {
-            opencc1.setConfig("s2t");
-        }
-        String output = opencc1.convert(input); // simplified to traditional
-        long durationMs = (System.nanoTime() - start) / 1_000_000;
+            // Time the conversion
+            long start = System.nanoTime();
+            String config = opencc1.getConfig();
+            if (!Objects.equals(config, "s2t")) {
+                opencc1.setConfig("s2t");
+            }
+            String output = opencc1.convert(input); // simplified to traditional
+            long durationMs = (System.nanoTime() - start) / 1_000_000;
 
-        // Assertions
-        assertNotNull(output);
-        assertEquals(input.length(), output.length()); // rough check, assuming 1:1 mapping
+            // Assertions
+            assertNotNull(output);
+            assertEquals(input.length(), output.length()); // rough check, assuming 1:1 mapping
+        }
     }
 
     @Test
     void testConfigFallback() {
-        OpenCC bad = new OpenCC("invalid_config");
-        assertEquals("s2t", bad.getConfig());
-        assertEquals("測試", bad.convert("测试"));
-        assertNotNull(OpenCC.getLastError());
+        try (OpenCC bad = new OpenCC("invalid_config")) {
+            assertNotNull(OpenCC.getLastError());
+            assertEquals("s2t", bad.getConfig());
+            assertEquals("測試", bad.convert("测试"));
+        }
     }
 
     @Test
     void testValidConfigClearsLastErrorAfterInvalidConstructorInput() {
         OpenCC.setLastError(null);
 
-        OpenCC bad = new OpenCC("invalid_config");
-        assertEquals("Invalid config: invalid_config", OpenCC.getLastError());
+        try (OpenCC bad = new OpenCC("invalid_config")) {
+            assertEquals("Invalid config: invalid_config", OpenCC.getLastError());
+        }
 
-        OpenCC good = new OpenCC("s2tw");
-        assertEquals("s2tw", good.getConfig());
-        assertEquals("", OpenCC.getLastError());
+        try (OpenCC good = OpenCC.fromConfig(OpenccConfig.S2TW)) {
+            assertEquals("s2tw", good.getConfig());
+            assertEquals("", OpenCC.getLastError());
+        }
     }
 
     @Test
     void testSetConfigClearsLastErrorAfterInvalidInput() {
-        OpenCC cc = new OpenCC();
+        try (OpenCC cc = new OpenCC()) {
 
-        cc.setConfig("invalid_config");
-        assertEquals("Invalid config: invalid_config", OpenCC.getLastError());
+            cc.setConfig("invalid_config");
+            assertEquals("Invalid config: invalid_config", OpenCC.getLastError());
 
-        cc.setConfig("tw2s");
-        assertEquals("tw2s", cc.getConfig());
-        assertEquals("", OpenCC.getLastError());
+            cc.setConfig(OpenccConfig.TW2S);
+            assertEquals("tw2s", cc.getConfig());
+            assertEquals("", OpenCC.getLastError());
+        }
     }
 
     @Test
