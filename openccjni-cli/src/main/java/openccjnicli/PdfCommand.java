@@ -10,6 +10,7 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -97,6 +98,18 @@ public class PdfCommand implements Runnable {
     )
     private boolean extract;
 
+    @Option(
+            names = {"-D", "--custom-dict"},
+            paramLabel = "<slot:mode:path>",
+            split = ",",
+            description = {
+                    "Apply a UTF-8 custom dictionary file.",
+                    "Format: slot:append|override:path.",
+                    "Repeat the option or separate specifications with commas."
+            }
+    )
+    private List<String> customDictSpecs;
+
     private static final Logger LOGGER = Logger.getLogger(PdfCommand.class.getName());
 
     @Override
@@ -153,7 +166,7 @@ public class PdfCommand implements Runnable {
                 System.err.println("🔁 Writing PDF extracted text...");
                 Files.write(output.toPath(), processed.getBytes(StandardCharsets.UTF_8));
             } else {
-                try (OpenCC opencc = new OpenCC(config)) {
+                try (OpenCC opencc = CliUtils.createOpenCC(config, customDictSpecs)) {
                     System.err.println("🔁 Converting with OpenccJNI...");
                     String converted = Objects.requireNonNull(
                             opencc.convert(processed, punct),
@@ -171,13 +184,15 @@ public class PdfCommand implements Runnable {
                     (addHeader ? ", header" : "") +
                     (reflow ? ", reflow" : "") +
                     (compact ? ", compact" : ""));
+        } catch (IllegalArgumentException e) {
+            System.err.println("❌ " + e.getMessage());
+            System.exit(1);
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "Error during PDF conversion", ex);
             System.err.println("❌ Exception occurred: " + ex.getMessage());
             System.exit(1);
         }
     }
-
 
     // ---- helpers ---------------------------------------------------------
 

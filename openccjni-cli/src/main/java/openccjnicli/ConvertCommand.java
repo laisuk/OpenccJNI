@@ -118,7 +118,9 @@ public class ConvertCommand implements Runnable {
                 }
                 System.err.println(BLUE + "Conversion completed (" + config + "): " + inFrom + " → " + outTo + RESET);
             }
-
+        } catch (IllegalArgumentException e) {
+            System.err.println("❌ " + e.getMessage());
+            System.exit(1);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error during text conversion", e);
             System.err.println("❌ Exception occurred: " + e.getMessage());

@@ -6,6 +6,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import java.io.File;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,56 +37,98 @@ public class OfficeCommand implements Runnable {
     @Option(names = {"-k", "--keep-font"}, defaultValue = "false", negatable = true, description = "Preserve font-family info (default: false)")
     private boolean keepFont;
 
+    @Option(
+            names = {"-D", "--custom-dict"},
+            paramLabel = "<slot:mode:path>",
+            split = ",",
+            description = {
+                    "Apply a UTF-8 custom dictionary file.",
+                    "Format: slot:append|override:path.",
+                    "Repeat the option or separate specifications with commas."
+            }
+    )
+    private List<String> customDictSpecs;
+
     private static final Logger LOGGER = Logger.getLogger(OfficeCommand.class.getName());
 
     @Override
     public void run() {
-        String inputName = removeExtension(input.getName());
-        String ext = getExtension(input.getName());
+        try {
+            CliUtils.validateInputFile(input);
 
-        String officeFormat;
+            String inputName = removeExtension(input.getName());
+            String ext = getExtension(input.getName());
+            String officeFormat;
 
-        if (format != null) {
-            officeFormat = format.toLowerCase();
+            if (format != null) {
+                officeFormat = format.toLowerCase();
 
-            if (!OfficeHelper.OFFICE_FORMATS.contains(officeFormat)) {
-                System.err.println("❌ Unsupported Office format: " + format);
-                System.exit(1);
-                return;
-            }
-        } else {
-            if (ext.isEmpty() || !OfficeHelper.OFFICE_FORMATS.contains(ext.substring(1).toLowerCase())) {
-                System.err.println("❌ Cannot infer Office format from input file extension.");
-                System.exit(1);
-                return;
-            }
-
-            officeFormat = ext.substring(1).toLowerCase();
-        }
-
-        if (output == null) {
-            String defaultName = inputName + "_converted." + officeFormat;
-            output = new File(input.getParentFile(), defaultName);
-            System.err.println("ℹ️ Output file not specified. Using: " + output);
-        }
-
-        if (getExtension(output.getName()).isEmpty()) {
-            output = new File(output.getAbsolutePath() + "." + officeFormat);
-            System.err.println("ℹ️ Auto-extension applied: " + output.getAbsolutePath());
-        }
-
-        try (OpenCC opencc = new OpenCC(config)) {
-            OfficeHelper.FileResult result = OfficeHelper.convert(
-                    input, output, officeFormat, opencc, punct, keepFont);
-
-            if (result.success) {
-                System.err.println(result.message + "\n\uD83D\uDCC1 Output saved to: " + output.getAbsolutePath());
+                if (!OfficeHelper.OFFICE_FORMATS.contains(officeFormat)) {
+                    System.err.println("❌ Unsupported Office format: " + format);
+                    System.exit(1);
+                    return;
+                }
             } else {
-                System.err.println("❌ Office document conversion failed: " + result.message);
-                System.exit(1);
+                if (ext.isEmpty()
+                        || !OfficeHelper.OFFICE_FORMATS.contains(
+                        ext.substring(1).toLowerCase())) {
+                    System.err.println(
+                            "❌ Cannot infer Office format from input file extension.");
+                    System.exit(1);
+                    return;
+                }
+
+                officeFormat = ext.substring(1).toLowerCase();
             }
+
+            if (output == null) {
+                String defaultName = inputName + "_converted." + officeFormat;
+                output = new File(input.getParentFile(), defaultName);
+                System.err.println(
+                        "ℹ️ Output file not specified. Using: " + output);
+            }
+
+            if (getExtension(output.getName()).isEmpty()) {
+                output = new File(
+                        output.getAbsolutePath() + "." + officeFormat);
+                System.err.println(
+                        "ℹ️ Auto-extension applied: " + output.getAbsolutePath());
+            }
+
+            try (OpenCC opencc =
+                         CliUtils.createOpenCC(config, customDictSpecs)) {
+                OfficeHelper.FileResult result = OfficeHelper.convert(
+                        input,
+                        output,
+                        officeFormat,
+                        opencc,
+                        punct,
+                        keepFont
+                );
+
+                if (result.success) {
+                    System.err.println(
+                            result.message
+                                    + "\n📁 Output saved to: "
+                                    + output.getAbsolutePath()
+                    );
+                } else {
+                    System.err.println(
+                            "❌ Office document conversion failed: "
+                                    + result.message
+                    );
+                    System.exit(1);
+                }
+            }
+        } catch (IllegalArgumentException e) {
+            System.err.println("❌ " + e.getMessage());
+            System.exit(1);
         } catch (Exception ex) {
-            LOGGER.log(Level.SEVERE, "Error during Office document conversion", ex);
+            LOGGER.log(
+                    Level.SEVERE,
+                    "Error during Office document conversion",
+                    ex
+            );
             System.err.println("❌ Exception occurred: " + ex.getMessage());
             System.exit(1);
         }
