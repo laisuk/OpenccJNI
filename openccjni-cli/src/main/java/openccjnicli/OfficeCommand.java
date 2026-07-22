@@ -74,9 +74,9 @@ public class OfficeCommand implements Runnable {
             System.err.println("ℹ️ Auto-extension applied: " + output.getAbsolutePath());
         }
 
-        try {
-            OpenCC opencc = new OpenCC(config);
-            OfficeHelper.FileResult result = OfficeHelper.convert(input, output, officeFormat, opencc, punct, keepFont);
+        try (OpenCC opencc = new OpenCC(config)) {
+            OfficeHelper.FileResult result = OfficeHelper.convert(
+                    input, output, officeFormat, opencc, punct, keepFont);
 
             if (result.success) {
                 System.err.println(result.message + "\n\uD83D\uDCC1 Output saved to: " + output.getAbsolutePath());

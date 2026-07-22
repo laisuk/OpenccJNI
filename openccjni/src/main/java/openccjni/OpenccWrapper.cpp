@@ -3,6 +3,9 @@
 #include <string>
 #include <cstring>
 #include <optional>
+#include <vector>
+#include <limits>
+#include <new>
 
 // Helper to read a Java byte[] into std::string (no copy back).
 // Returns std::nullopt when the array itself is null so callers can
@@ -18,6 +21,30 @@ static std::optional<std::string> jbyteArrayToString(JNIEnv *env, jbyteArray arr
         }
     }
     return s;
+}
+
+static void throwJavaException(
+    JNIEnv *env,
+    const char *className,
+    const char *message) {
+
+    if (env->ExceptionCheck()) {
+        return;
+    }
+
+    jclass exClass = env->FindClass(className);
+    if (exClass != nullptr) {
+        env->ThrowNew(exClass, message);
+        env->DeleteLocalRef(exClass);
+    }
+}
+
+static void throwIllegalArgument(JNIEnv *env, const char *message) {
+    throwJavaException(env, "java/lang/IllegalArgumentException", message);
+}
+
+static void throwOutOfMemory(JNIEnv *env, const char *message) {
+    throwJavaException(env, "java/lang/OutOfMemoryError", message);
 }
 
 // -------------------- NEW: library-level ABI + version --------------------
@@ -44,6 +71,212 @@ JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1version_1string
 JNIEXPORT jlong JNICALL Java_openccjni_OpenccWrapper_opencc_1new
 (JNIEnv *env, jobject /*obj*/) {
     return reinterpret_cast<jlong>(opencc_new());
+}
+
+JNIEXPORT jlong JNICALL Java_openccjni_OpenccWrapper_opencc_1new_1custom
+(JNIEnv *env,
+ jobject /*obj*/,
+ jintArray slots,
+ jintArray modes,
+ jintArray pairCounts,
+ jobjectArray sourcesUtf8,
+ jobjectArray targetsUtf8) {
+
+    if (slots == nullptr ||
+        modes == nullptr ||
+        pairCounts == nullptr ||
+        sourcesUtf8 == nullptr ||
+        targetsUtf8 == nullptr) {
+        throwIllegalArgument(env, "Custom dictionary arrays cannot be null");
+        return 0;
+    }
+
+    const jsize specCount = env->GetArrayLength(slots);
+    if (env->ExceptionCheck()) return 0;
+
+    if (env->GetArrayLength(modes) != specCount ||
+        env->GetArrayLength(pairCounts) != specCount) {
+        throwIllegalArgument(
+            env,
+            "slots, modes, and pairCounts must have equal lengths");
+        return 0;
+    }
+
+    const jsize sourceCount = env->GetArrayLength(sourcesUtf8);
+    const jsize targetCount = env->GetArrayLength(targetsUtf8);
+
+    if (env->ExceptionCheck()) return 0;
+
+    if (sourceCount != targetCount) {
+        throwIllegalArgument(
+            env,
+            "sourcesUtf8 and targetsUtf8 must have equal lengths");
+        return 0;
+    }
+
+    try {
+        std::vector<jint> slotValues(static_cast<size_t>(specCount));
+        std::vector<jint> modeValues(static_cast<size_t>(specCount));
+        std::vector<jint> countValues(static_cast<size_t>(specCount));
+
+        if (specCount > 0) {
+            env->GetIntArrayRegion(
+                slots, 0, specCount, slotValues.data());
+            env->GetIntArrayRegion(
+                modes, 0, specCount, modeValues.data());
+            env->GetIntArrayRegion(
+                pairCounts, 0, specCount, countValues.data());
+
+            if (env->ExceptionCheck()) return 0;
+        }
+
+        size_t totalPairs = 0;
+
+        for (jsize i = 0; i < specCount; ++i) {
+            const jint count = countValues[static_cast<size_t>(i)];
+
+            if (count < 0) {
+                throwIllegalArgument(
+                    env,
+                    "pairCounts cannot contain negative values");
+                return 0;
+            }
+
+            const size_t nativeCount = static_cast<size_t>(count);
+
+            if (nativeCount >
+                std::numeric_limits<size_t>::max() - totalPairs) {
+                throwIllegalArgument(env, "Total pair count is too large");
+                return 0;
+            }
+
+            totalPairs += nativeCount;
+        }
+
+        if (totalPairs != static_cast<size_t>(sourceCount)) {
+            throwIllegalArgument(
+                env,
+                "Sum of pairCounts must equal the number of source and target pairs");
+            return 0;
+        }
+
+        /*
+         * Read all strings first. Their storage must be finalized before
+         * taking c_str() pointers.
+         */
+        std::vector<std::string> sourceStrings;
+        std::vector<std::string> targetStrings;
+        sourceStrings.reserve(totalPairs);
+        targetStrings.reserve(totalPairs);
+
+        for (jsize i = 0; i < sourceCount; ++i) {
+            auto sourceArray = static_cast<jbyteArray>(
+                env->GetObjectArrayElement(sourcesUtf8, i));
+
+            if (env->ExceptionCheck()) return 0;
+
+            if (sourceArray == nullptr) {
+                throwIllegalArgument(
+                    env,
+                    "sourcesUtf8 cannot contain null elements");
+                return 0;
+            }
+
+            auto targetArray = static_cast<jbyteArray>(
+                env->GetObjectArrayElement(targetsUtf8, i));
+
+            if (env->ExceptionCheck()) {
+                env->DeleteLocalRef(sourceArray);
+                return 0;
+            }
+
+            if (targetArray == nullptr) {
+                env->DeleteLocalRef(sourceArray);
+                throwIllegalArgument(
+                    env,
+                    "targetsUtf8 cannot contain null elements");
+                return 0;
+            }
+
+            auto source = jbyteArrayToString(env, sourceArray);
+            auto target = jbyteArrayToString(env, targetArray);
+
+            env->DeleteLocalRef(sourceArray);
+            env->DeleteLocalRef(targetArray);
+
+            if (env->ExceptionCheck()) return 0;
+
+            if (!source || !target) {
+                return 0;
+            }
+
+            if (source->find('\0') != std::string::npos ||
+                target->find('\0') != std::string::npos) {
+                throwIllegalArgument(
+                    env,
+                    "Custom dictionary strings cannot contain NUL bytes");
+                return 0;
+            }
+
+            sourceStrings.push_back(std::move(*source));
+            targetStrings.push_back(std::move(*target));
+        }
+
+        /*
+         * Build the contiguous C pair array only after the string vectors
+         * are complete, so every c_str() pointer remains stable.
+         */
+        std::vector<opencc_custom_pair_t> nativePairs(totalPairs);
+
+        for (size_t i = 0; i < totalPairs; ++i) {
+            nativePairs[i].source = sourceStrings[i].c_str();
+            nativePairs[i].target = targetStrings[i].c_str();
+        }
+
+        /*
+         * Each spec points at its consecutive range inside nativePairs.
+         * An empty spec receives nullptr, which is valid with pair_count == 0.
+         */
+        std::vector<opencc_custom_dict_spec_t> nativeSpecs(
+            static_cast<size_t>(specCount));
+
+        size_t pairOffset = 0;
+
+        for (jsize i = 0; i < specCount; ++i) {
+            const size_t index = static_cast<size_t>(i);
+            const size_t count =
+                static_cast<size_t>(countValues[index]);
+
+            nativeSpecs[index].slot =
+                static_cast<opencc_dict_slot_t>(slotValues[index]);
+            nativeSpecs[index].mode =
+                static_cast<opencc_custom_dict_mode_t>(modeValues[index]);
+            nativeSpecs[index].pairs =
+                count == 0 ? nullptr : nativePairs.data() + pairOffset;
+            nativeSpecs[index].pair_count = count;
+
+            pairOffset += count;
+        }
+
+        void *instance = opencc_new_custom(
+            nativeSpecs.empty() ? nullptr : nativeSpecs.data(),
+            nativeSpecs.size());
+
+        return reinterpret_cast<jlong>(instance);
+    }
+    catch (const std::bad_alloc &) {
+        throwOutOfMemory(
+            env,
+            "Unable to allocate native custom dictionary buffers");
+        return 0;
+    }
+    catch (...) {
+        throwJavaException(
+            env,
+            "java/lang/RuntimeException",
+            "Unexpected native error while creating custom OpenCC instance");
+        return 0;
+    }
 }
 
 JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert

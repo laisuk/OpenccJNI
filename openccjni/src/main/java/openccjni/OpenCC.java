@@ -1,5 +1,12 @@
 package openccjni;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,10 +28,10 @@ import java.util.concurrent.ConcurrentMap;
  *   windows-x86_64/  OpenccWrapper.dll,    opencc_fmmseg_capi.dll
  * </pre>
  *
- * <p><b>Thread-safety:</b> A {@link ThreadLocal} wrapper instance is used internally, so calls
- * to the static helpers, including the static {@code convert(...)} overloads, are safe to use
- * concurrently across threads. Configured {@code OpenCC} instances are mutable and are not
- * thread-safe; confine each instance to one thread or provide external synchronization.
+ * <p><b>Thread-safety:</b> A {@link ThreadLocal} wrapper instance is used for static helpers,
+ * including the static {@code convert(...)} overloads. Each configured {@code OpenCC} owns one
+ * native wrapper; conversion calls may run concurrently while its configuration remains unchanged.
+ * Do not call {@code setConfig(...)} or {@link #close()} concurrently with conversion.
  *
  * <h2>Examples</h2>
  *
@@ -33,43 +40,37 @@ import java.util.concurrent.ConcurrentMap;
  * String s = OpenCC.convert("汉字", "s2t");
  *
  * // Instance-based conversion with persistent profile
- * OpenCC cc = OpenCC.fromConfig("tw2s");
- * String out = cc.convert("繁體字");
+ * try (OpenCC cc = OpenCC.fromConfig("tw2s")) {
+ *     String out = cc.convert("繁體字");
+ * }
  * }</pre>
  *
  * @since 1.0.0
  */
-public final class OpenCC {
-    /**
-     * Thread-local native wrapper for OpenCC (safe for parallel use).
-     */
+public final class OpenCC implements AutoCloseable {
+    // ---------- Static state ----------
+
+    /** Thread-local native wrapper used only by static convenience methods. */
     private static final ThreadLocal<OpenccWrapper> WRAPPER =
             ThreadLocal.withInitial(OpenccWrapper::new);
 
-    /**
-     * Default configuration if none is specified.
-     */
+    /** Cache of stable enum-to-native configuration identifiers. */
+    private static final ConcurrentMap<OpenccConfig, Integer> CONFIG_ID_CACHE =
+            new ConcurrentHashMap<>();
+
+    /** Java-side last-error state for the current thread. */
+    private static final ThreadLocal<String> LAST_ERROR = new ThreadLocal<>();
+
+    // ---------- Instance state ----------
+
+    /** Native wrapper owned exclusively by this configured instance. */
+    private final OpenccWrapper instanceWrapper;
+
+    /** Active conversion configuration. */
     private OpenccConfig configId;
 
-    /**
-     * Cached native config id (opencc_config_t).
-     * Lazily resolved on first use; reset to -1 when config changes.
-     */
+    /** Lazily resolved native configuration identifier; reset when the config changes. */
     private volatile int resolvedNumericId = -1;
-
-    /**
-     * Cache enum -> native numeric id (opencc_config_t). Values are stable across runs.
-     *
-     * <p>Even though resolving is cheap, caching avoids repeated JNI calls in hot loops.</p>
-     */
-    private static final ConcurrentMap<OpenccConfig, Integer> CONFIG_ID_CACHE = new ConcurrentHashMap<>();
-
-    /**
-     * Last error message encountered by OpenCC operations (Java-side).
-     *
-     * <p>Priority: Java-side error first; if empty, fall back to native last error.</p>
-     */
-    private static final ThreadLocal<String> LAST_ERROR = new ThreadLocal<>();
 
     // ---------- Constructors / factories ----------
 
@@ -79,8 +80,7 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public OpenCC() {
-        this.configId = OpenccConfig.defaultConfig();
-        setLastError(null);
+        this(OpenccConfig.defaultConfig(), Collections.<CustomDictSpec>emptyList());
     }
 
     /**
@@ -97,14 +97,10 @@ public final class OpenCC {
      * @since 1.0.0
      */
     public OpenCC(String config) {
-        OpenccConfig parsed = OpenccConfig.tryParse(config);
-        if (parsed == null) {
+        this(configOrDefault(config), Collections.<CustomDictSpec>emptyList());
+        if (OpenccConfig.tryParse(config) == null) {
             setLastError("Invalid config: " + config);
-            parsed = OpenccConfig.defaultConfig();
-        } else {
-            setLastError(null);
         }
-        this.configId = parsed;
     }
 
     /**
@@ -117,13 +113,58 @@ public final class OpenCC {
      * @since 1.2.0
      */
     public OpenCC(OpenccConfig configId) {
-        if (configId == null) {
-            setLastError("Config is null");
-            configId = OpenccConfig.defaultConfig();
-        } else {
-            setLastError(null);
-        }
-        this.configId = configId;
+        this(configId, Collections.<CustomDictSpec>emptyList());
+    }
+
+    /**
+     * Creates an instance with the default {@code s2t} configuration and custom dictionaries.
+     *
+     * <p>Dictionary files are normalized and read during construction only.
+     * Use try-with-resources to release the instance-owned native wrapper.</p>
+     *
+     * @param specs custom dictionary specifications; {@code null} or empty uses
+     *              only the built-in dictionaries
+     * @throws IllegalArgumentException if a dictionary line is malformed
+     * @throws RuntimeException if a dictionary file cannot be read or the native
+     *                          custom converter cannot be created
+     * @since 1.4.0
+     */
+    public OpenCC(List<CustomDictSpec> specs) {
+        this(OpenccConfig.defaultConfig(), specs);
+    }
+
+    /**
+     * Creates an instance with a configuration and immutable custom dictionaries.
+     *
+     * <p>Each referenced UTF-8 dictionary file is read exactly once. Its mappings
+     * are copied into one native wrapper owned by this object, so later changes to
+     * the files or specification lists do not affect conversion.</p>
+     *
+     * @param config conversion configuration; {@code null} selects the default
+     *               configuration and records {@code "Config is null"}
+     * @param specs custom dictionary specifications; {@code null} or empty uses
+     *              only the built-in dictionaries
+     * @throws NullPointerException if a specification or one of its paths is {@code null}
+     * @throws IllegalArgumentException if a dictionary line is malformed
+     * @throws RuntimeException if a dictionary file cannot be read or the native
+     *                          custom converter cannot be created
+     * @since 1.4.0
+     */
+    public OpenCC(
+            OpenccConfig config,
+            List<CustomDictSpec> specs
+    ) {
+        this.configId = config != null
+                ? config
+                : OpenccConfig.defaultConfig();
+
+        List<OpenccWrapper.OpenccCustomDictSpec> normalizedSpecs =
+                normalizeCustomDictSpecs(specs);
+
+        this.instanceWrapper = normalizedSpecs.isEmpty()
+                ? new OpenccWrapper()
+                : new OpenccWrapper(normalizedSpecs);
+        setInstanceLastError(config == null ? "Config is null" : null);
     }
 
     /**
@@ -357,15 +398,28 @@ public final class OpenCC {
             return null;
         }
         if (input.isEmpty()) {
-            setLastError(null);
+            setInstanceLastError(null);
             return "";
         }
 
-        setLastError(null);
+        setInstanceLastError(null);
 
-        final OpenccWrapper w = WRAPPER.get();
+        final OpenccWrapper w = instanceWrapper;
         final int cfgId = resolveConfigNumericId(w);
         return w.convertCfg(input, cfgId, punctuation);
+    }
+
+    /**
+     * Releases only this object's instance-owned native wrapper.
+     *
+     * <p>This method is idempotent. Static convenience methods and converters
+     * owned by other {@code OpenCC} objects are not affected.</p>
+     *
+     * @since 1.4.0
+     */
+    @Override
+    public void close() {
+        instanceWrapper.close();
     }
 
     /**
@@ -419,7 +473,7 @@ public final class OpenCC {
             setLastError("Invalid config: " + config);
             parsed = OpenccConfig.defaultConfig();
         } else {
-            setLastError(null);
+            setInstanceLastError(null);
         }
         this.configId = parsed;
         this.resolvedNumericId = -1;
@@ -438,7 +492,7 @@ public final class OpenCC {
             setLastError("Config is null");
             configId = OpenccConfig.defaultConfig();
         } else {
-            setLastError(null);
+            setInstanceLastError(null);
         }
         this.configId = configId;
         this.resolvedNumericId = -1;
@@ -474,6 +528,18 @@ public final class OpenCC {
 
     // ---------- Internal helpers ----------
 
+    private void setInstanceLastError(String lastError) {
+        LAST_ERROR.set(lastError);
+        if (lastError == null) {
+            instanceWrapper.clearLastError();
+        }
+    }
+
+    private static OpenccConfig configOrDefault(String config) {
+        OpenccConfig parsed = OpenccConfig.tryParse(config);
+        return parsed != null ? parsed : OpenccConfig.defaultConfig();
+    }
+
     private int resolveConfigNumericId(OpenccWrapper w) {
         int id = resolvedNumericId;
         if (id >= 0) return id;
@@ -486,6 +552,215 @@ public final class OpenCC {
 
         resolvedNumericId = cached;
         return cached;
+    }
+
+    // ---------- Custom dictionary normalization ----------
+
+    private static List<OpenccWrapper.OpenccCustomDictSpec>
+    normalizeCustomDictSpecs(List<CustomDictSpec> specs) {
+        if (specs == null || specs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<OpenccWrapper.OpenccCustomDictSpec> normalized =
+                new ArrayList<>(specs.size());
+
+        for (int specIndex = 0; specIndex < specs.size(); specIndex++) {
+            CustomDictSpec spec = Objects.requireNonNull(
+                    specs.get(specIndex),
+                    "specs cannot contain null at index " + specIndex
+            );
+
+            List<OpenccWrapper.OpenccCustomPair> pairs = new ArrayList<>();
+
+            for (int pathIndex = 0; pathIndex < spec.paths.size(); pathIndex++) {
+                Path path = Objects.requireNonNull(
+                        spec.paths.get(pathIndex),
+                        "spec paths cannot contain null at index " + pathIndex
+                );
+
+                loadCustomDictPairs(path, pairs);
+            }
+
+            normalized.add(
+                    new OpenccWrapper.OpenccCustomDictSpec(
+                            toNativeSlot(spec.slot),
+                            toNativeMode(spec.mode),
+                            pairs
+                    )
+            );
+        }
+
+        return normalized;
+    }
+
+    private static void loadCustomDictPairs(
+            Path path,
+            List<OpenccWrapper.OpenccCustomPair> pairs
+    ) {
+        try (BufferedReader reader =
+                     Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+
+            String raw;
+            int lineNumber = 0;
+
+            while ((raw = reader.readLine()) != null) {
+                lineNumber++;
+
+                int start = 0;
+                int end = raw.length();
+
+                while (start < end
+                        && Character.isWhitespace(raw.charAt(start))) {
+                    start++;
+                }
+
+                while (end > start
+                        && Character.isWhitespace(raw.charAt(end - 1))) {
+                    end--;
+                }
+
+                if (start >= end) {
+                    continue;
+                }
+
+                if (lineNumber == 1 && raw.charAt(start) == '\uFEFF') {
+                    start++;
+                    if (start >= end) {
+                        continue;
+                    }
+                }
+
+                char first = raw.charAt(start);
+
+                if (first == '#'
+                        || (first == '/'
+                        && start + 1 < end
+                        && raw.charAt(start + 1) == '/')) {
+                    continue;
+                }
+
+                int tab = raw.indexOf('\t', start);
+
+                if (tab < 0 || tab >= end) {
+                    throw malformedCustomDictLine(
+                            path,
+                            lineNumber,
+                            "expected source<TAB>target"
+                    );
+                }
+
+                int keyEnd = tab;
+                while (keyEnd > start
+                        && Character.isWhitespace(raw.charAt(keyEnd - 1))) {
+                    keyEnd--;
+                }
+
+                int valueStart = tab + 1;
+                while (valueStart < end) {
+                    char ch = raw.charAt(valueStart);
+                    if (ch != ' ' && ch != '\t') {
+                        break;
+                    }
+                    valueStart++;
+                }
+
+                int valueEnd = valueStart;
+                while (valueEnd < end) {
+                    char ch = raw.charAt(valueEnd);
+                    if (ch == ' ' || ch == '\t') {
+                        break;
+                    }
+                    valueEnd++;
+                }
+
+                if (keyEnd <= start || valueEnd <= valueStart) {
+                    throw malformedCustomDictLine(
+                            path,
+                            lineNumber,
+                            "source and target must not be empty"
+                    );
+                }
+
+                String source = raw.substring(start, keyEnd);
+                String target = raw.substring(valueStart, valueEnd);
+
+                pairs.add(
+                        new OpenccWrapper.OpenccCustomPair(source, target)
+                );
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(
+                    "Failed to load custom dictionary: " + path,
+                    e
+            );
+        }
+    }
+
+    private static IllegalArgumentException malformedCustomDictLine(
+            Path path,
+            int lineNumber,
+            String reason
+    ) {
+        return new IllegalArgumentException(
+                "Malformed custom dictionary line "
+                        + lineNumber + " in " + path + ": " + reason
+        );
+    }
+
+    private static int toNativeMode(CustomDictMode mode) {
+        return Objects.requireNonNull(mode, "custom dictionary mode").nativeValue();
+    }
+
+    private static int toNativeSlot(DictSlot slot) {
+        Objects.requireNonNull(slot, "custom dictionary slot");
+
+        switch (slot) {
+            case STCharacters:
+                return 1;
+            case STPhrases:
+                return 2;
+            case TSCharacters:
+                return 3;
+            case TSPhrases:
+                return 4;
+            case TWPhrases:
+                return 5;
+            case TWPhrasesRev:
+                return 6;
+            case HKPhrases:
+                return 7;
+            case HKPhrasesRev:
+                return 8;
+            case TWVariants:
+                return 9;
+            case TWVariantsPhrases:
+                return 10;
+            case TWVariantsRev:
+                return 11;
+            case TWVariantsRevPhrases:
+                return 12;
+            case HKVariants:
+                return 13;
+            case HKVariantsPhrases:
+                return 14;
+            case HKVariantsRev:
+                return 15;
+            case HKVariantsRevPhrases:
+                return 16;
+            case JPSCharacters:
+                return 17;
+            case JPSCharactersRev:
+                return 18;
+            case JPSPhrases:
+                return 19;
+            case STPunctuations:
+                return 20;
+            case TSPunctuations:
+                return 21;
+            default:
+                throw new AssertionError("Unhandled custom dictionary slot: " + slot);
+        }
     }
 }
 

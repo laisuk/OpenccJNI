@@ -33,6 +33,14 @@ JNIEXPORT jlong JNICALL Java_openccjni_OpenccWrapper_opencc_1new
 
 /*
  * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_new_custom
+ * Signature: ([I[I[I[[B[[B)J
+ */
+JNIEXPORT jlong JNICALL Java_openccjni_OpenccWrapper_opencc_1new_1custom
+  (JNIEnv *, jobject, jintArray, jintArray, jintArray, jobjectArray, jobjectArray);
+
+/*
+ * Class:     openccjni_OpenccWrapper
  * Method:    opencc_convert
  * Signature: (J[B[BZ)[B
  */
@@ -86,6 +94,7 @@ JNIEXPORT jstring JNICALL Java_openccjni_OpenccWrapper_opencc_1last_1error
  */
 JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1clear_1last_1error
   (JNIEnv *, jobject);
+
 /*
  * Class:     openccjni_OpenccWrapper
  * Method:    opencc_convert_cfg
@@ -114,4 +123,3 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1config_1id_1to
 }
 #endif
 #endif
-

@@ -24,22 +24,24 @@ class OfficeHelperTest {
     void convertsInlineStringsInXlsxWorksheetWithoutTouchingFormulas() throws IOException {
         byte[] workbook = createInlineStringWorkbook();
 
-        OfficeHelper.MemoryResult result = OfficeHelper.convert(
-                workbook,
-                "xlsx",
-                new OpenCC("s2t"),
-                false,
-                false
-        );
+        try (OpenCC opencc = new OpenCC("s2t")) {
+            OfficeHelper.MemoryResult result = OfficeHelper.convert(
+                    workbook,
+                    "xlsx",
+                    opencc,
+                    false,
+                    false
+            );
 
-        assertTrue(result.success, result.message);
-        assertNotNull(result.data);
+            assertTrue(result.success, result.message);
+            assertNotNull(result.data);
 
-        String sheetXml = unzipEntry(result.data, "xl/worksheets/sheet1.xml");
-        assertNotNull(sheetXml);
-        assertTrue(sheetXml.contains("<t>簡體中文</t>"), sheetXml);
-        assertTrue(sheetXml.contains("<f>IF(A1=\"简体\",1,0)</f>"), sheetXml);
-        assertFalse(sheetXml.contains("<t>简体中文</t>"), sheetXml);
+            String sheetXml = unzipEntry(result.data, "xl/worksheets/sheet1.xml");
+            assertNotNull(sheetXml);
+            assertTrue(sheetXml.contains("<t>簡體中文</t>"), sheetXml);
+            assertTrue(sheetXml.contains("<f>IF(A1=\"简体\",1,0)</f>"), sheetXml);
+            assertFalse(sheetXml.contains("<t>简体中文</t>"), sheetXml);
+        }
     }
 
     @Test

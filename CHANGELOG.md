@@ -6,6 +6,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.4.0] - Unreleased
+
+### Added
+
+- Added immutable custom dictionaries to the Java API through `CustomDictSpec`, `CustomDictMode`, `DictSlot`, and the
+  new `OpenCC` custom-dictionary constructors.
+- Added low-level in-memory custom dictionary construction to `OpenccWrapper`.
+- Added repeatable `-D` / `--custom-dict=<slot:append|override:path>` support to the `openccjni-cli convert` command.
+
+### Changed
+
+- Configured `OpenCC` objects now own one native wrapper, implement `AutoCloseable`, load custom dictionary files once
+  during construction, and support concurrent conversion while their configuration remains unchanged.
+- Expanded Java 8-compatible Javadocs and README examples for custom dictionaries and resource ownership.
+
+---
+
 ## [1.3.0] - 2026-07-22
 
 ### Added

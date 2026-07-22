@@ -1,6 +1,9 @@
 package openccjni;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -61,6 +64,18 @@ public class OpenccWrapper implements AutoCloseable {
      * Creates a new native OpenCC instance.
      */
     private native long opencc_new();
+
+    /**
+     * Creates a native instance from flattened custom dictionary specifications.
+     * All arrays are borrowed only for the duration of this JNI call.
+     */
+    private native long opencc_new_custom(
+            int[] slots,
+            int[] modes,
+            int[] pairCounts,
+            byte[][] sourcesUtf8,
+            byte[][] targetsUtf8
+    );
 
     /**
      * Converts text using the given config and punctuation setting.
@@ -167,6 +182,73 @@ public class OpenccWrapper implements AutoCloseable {
         if (instance == 0) {
             String err = opencc_last_error();
             throw new RuntimeException("Failed to create OpenCC instance: " + (err != null ? err : ""));
+        }
+    }
+
+    /**
+     * Creates a native wrapper with immutable in-memory custom dictionaries.
+     *
+     * <p>The supplied specifications and UTF-8 strings are copied during
+     * construction. An empty list is equivalent to the default wrapper.</p>
+     *
+     * @param specs low-level custom dictionary specifications; must not be
+     *              {@code null} or contain {@code null}
+     * @throws NullPointerException if the list, a specification, its pair list,
+     *                              or a pair is {@code null}
+     * @throws IllegalArgumentException if a source or target contains an embedded
+     *                                  NUL character
+     * @throws RuntimeException if the native instance cannot be created
+     * @since 1.4.0
+     */
+    public OpenccWrapper(List<OpenccCustomDictSpec> specs) {
+        Objects.requireNonNull(specs, "specs cannot be null");
+
+        int specCount = specs.size();
+        int totalPairs = 0;
+
+        for (OpenccCustomDictSpec spec : specs) {
+            Objects.requireNonNull(spec, "spec cannot be null");
+            totalPairs = Math.addExact(totalPairs, spec.getPairs().size());
+        }
+
+        int[] slots = new int[specCount];
+        int[] modes = new int[specCount];
+        int[] pairCounts = new int[specCount];
+        byte[][] sourcesUtf8 = new byte[totalPairs][];
+        byte[][] targetsUtf8 = new byte[totalPairs][];
+
+        int pairIndex = 0;
+
+        for (int i = 0; i < specCount; i++) {
+            OpenccCustomDictSpec spec = specs.get(i);
+
+            slots[i] = spec.getSlot();
+            modes[i] = spec.getMode();
+            pairCounts[i] = spec.getPairs().size();
+
+            for (OpenccCustomPair pair : spec.getPairs()) {
+                sourcesUtf8[pairIndex] =
+                        pair.getSource().getBytes(StandardCharsets.UTF_8);
+                targetsUtf8[pairIndex] =
+                        pair.getTarget().getBytes(StandardCharsets.UTF_8);
+                pairIndex++;
+            }
+        }
+
+        instance = opencc_new_custom(
+                slots,
+                modes,
+                pairCounts,
+                sourcesUtf8,
+                targetsUtf8
+        );
+
+        if (instance == 0) {
+            String err = opencc_last_error();
+            throw new RuntimeException(
+                    "Failed to create custom OpenCC instance: "
+                            + (err != null ? err : "")
+            );
         }
     }
 
@@ -404,6 +486,112 @@ public class OpenccWrapper implements AutoCloseable {
             instance = 0;
         }
     }
+
+    // ------------------------------------------------------------------------
+    // Custom dictionary value types
+    // ------------------------------------------------------------------------
+
+    /**
+     * One low-level source-to-target custom dictionary mapping.
+     *
+     * <p>Most applications should use {@link CustomDictSpec} and let
+     * {@link OpenCC} parse dictionary files. This type is intended for direct
+     * {@code OpenccWrapper} integrations.</p>
+     *
+     * @since 1.4.0
+     */
+    public static final class OpenccCustomPair {
+        private final String source;
+        private final String target;
+
+        /**
+         * Creates a custom mapping pair.
+         *
+         * @param source source dictionary key; must not be {@code null}
+         * @param target replacement text; must not be {@code null}
+         * @throws NullPointerException if either argument is {@code null}
+         */
+        public OpenccCustomPair(String source, String target) {
+            this.source = Objects.requireNonNull(source, "source cannot be null");
+            this.target = Objects.requireNonNull(target, "target cannot be null");
+        }
+
+        /**
+         * Returns the source dictionary key.
+         *
+         * @return source dictionary key
+         */
+        public String getSource() {
+            return source;
+        }
+
+        /**
+         * Returns the replacement text.
+         *
+         * @return replacement text
+         */
+        public String getTarget() {
+            return target;
+        }
+    }
+
+    /**
+     * One low-level custom dictionary operation using native slot and mode values.
+     *
+     * <p>The pair list is defensively copied and exposed as an unmodifiable list.
+     * Prefer {@link CustomDictSpec} for the strongly typed, file-based API.</p>
+     *
+     * @since 1.4.0
+     */
+    public static final class OpenccCustomDictSpec {
+        private final int slot;
+        private final int mode;
+        private final List<OpenccCustomPair> pairs;
+
+        /**
+         * Creates a low-level custom dictionary specification.
+         *
+         * @param slot native {@code opencc_dict_slot_t} value
+         * @param mode native {@code opencc_custom_dict_mode_t} value
+         * @param pairs mappings to apply; must not be {@code null}
+         * @throws NullPointerException if {@code pairs} is {@code null}
+         */
+        public OpenccCustomDictSpec(
+                int slot,
+                int mode,
+                List<OpenccCustomPair> pairs) {
+            this.slot = slot;
+            this.mode = mode;
+            this.pairs = Collections.unmodifiableList(
+                    new ArrayList<>(Objects.requireNonNull(pairs, "pairs cannot be null"))
+            );
+        }
+
+        /**
+         * Returns the native dictionary slot value.
+         *
+         * @return native dictionary slot value
+         */
+        public int getSlot() {
+            return slot;
+        }
+
+        /**
+         * Returns the native custom dictionary mode value.
+         *
+         * @return native custom dictionary mode value
+         */
+        public int getMode() {
+            return mode;
+        }
+
+        /**
+         * Returns the immutable custom mapping list.
+         *
+         * @return immutable custom mapping list
+         */
+        public List<OpenccCustomPair> getPairs() {
+            return pairs;
+        }
+    }
 }
-
-

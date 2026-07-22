@@ -10,6 +10,7 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -152,13 +153,14 @@ public class PdfCommand implements Runnable {
                 System.err.println("🔁 Writing PDF extracted text...");
                 Files.write(output.toPath(), processed.getBytes(StandardCharsets.UTF_8));
             } else {
-                OpenCC opencc = new OpenCC(config);
-                // OpenCC conversion
-                System.err.println("🔁 Converting with OpenccJNI...");
-                String converted = opencc.convert(processed, punct);
-                // Save UTF-8
-                assert converted != null;
-                Files.write(output.toPath(), converted.getBytes(StandardCharsets.UTF_8));
+                try (OpenCC opencc = new OpenCC(config)) {
+                    System.err.println("🔁 Converting with OpenccJNI...");
+                    String converted = Objects.requireNonNull(
+                            opencc.convert(processed, punct),
+                            "OpenCC conversion returned null"
+                    );
+                    Files.write(output.toPath(), converted.getBytes(StandardCharsets.UTF_8));
+                }
             }
 
             System.err.println("✅ PDF " + (extract ? "extraction" : "conversion") + " succeeded.");

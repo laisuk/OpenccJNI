@@ -9,11 +9,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Subcommand for converting plain text using OpenCC.
+ * Converts plain text with an OpenCC profile and optional custom dictionaries.
  */
 @Command(name = "convert", description = "\033[1;34mConvert plain text using OpenccJNI\033[0m", mixinStandardHelpOptions = true)
 public class ConvertCommand implements Runnable {
@@ -31,6 +32,18 @@ public class ConvertCommand implements Runnable {
 
     @Option(names = {"-p", "--punct"}, description = "Punctuation conversion (default: false)")
     private boolean punct;
+
+    @Option(
+            names = {"-D", "--custom-dict"},
+            paramLabel = "<slot:mode:path>",
+            split = ",",
+            description = {
+                    "Apply a UTF-8 custom dictionary file.",
+                    "Format: slot:append|override:path.",
+                    "Repeat the option or separate specifications with commas."
+            }
+    )
+    private List<String> customDictSpecs;
 
     @Option(names = {"--in-enc"}, paramLabel = "<encoding>", defaultValue = "UTF-8", description = "Input encoding")
     private String inEncoding;
@@ -57,8 +70,7 @@ public class ConvertCommand implements Runnable {
     }
 
     private void handleTextConversion() {
-        try {
-            OpenCC opencc = new OpenCC(config);
+        try (OpenCC opencc = CliUtils.createOpenCC(config, customDictSpecs)) {
             String inputText;
 
             if (input != null) {

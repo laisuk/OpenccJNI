@@ -56,17 +56,18 @@ OpenccWrapper (New Method)
 =============
 Edit OpenccWrapper.java
 javac -h . OpenccWrapper.java
-javac -h . OpenccWrapper.java OpenccConfig.java
+javac -h . OpenccWrapper.java OpenccConfig.java NativeLibLoader.java
 => opencc_OpenccWrapper.h
 Edit OpenccWrapper.cpp
 
 == Windows ==
 g++ -shared -o OpenccWrapper.dll OpenccWrapper.cpp -I . -I "C:\Program Files\Java\jdk-21\include\" -I "C:\Program Files\Java\jdk-21\include\win32" -L. -lopencc_fmmseg_capi
+g++ -shared -o OpenccWrapper.dll OpenccWrapper.cpp -I . -I "C:\Program Files\Java\jdk-21.0.11\include" -I "C:\Program Files\Java\jdk-21.0.11\include\win32" -L. -lopencc_fmmseg_capi
 g++ -shared `
   -o OpenccWrapper.dll OpenccWrapper.cpp `
   -I. `
-  -I"C:\Program Files\Java\jdk-21.0.10\include" `
-  -I"C:\Program Files\Java\jdk-21.0.10\include\win32" `
+  -I"C:\Program Files\Java\jdk-21.0.11\include" `
+  -I"C:\Program Files\Java\jdk-21.0.11\include\win32" `
   -L. -lopencc_fmmseg_capi `
   -static-libstdc++ -static-libgcc `
   -s
