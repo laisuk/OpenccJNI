@@ -123,6 +123,8 @@ public class OpenCCTests {
             // Assertions
             assertNotNull(output);
             assertEquals(input.length(), output.length()); // rough check, assuming 1:1 mapping
+            System.out.println("s2t() conversion of 100K chars completed in " + durationMs + " ms");
+
         }
     }
 
