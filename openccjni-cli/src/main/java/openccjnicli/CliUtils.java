@@ -169,31 +169,31 @@ public final class CliUtils {
     }
 
     /**
-     * Lists the non-deprecated dictionary slots accepted by the CLI.
+     * Lists the dictionary slots accepted by the CLI.
+     *
+     * <p>Deprecated compatibility alias names are omitted.</p>
      *
      * @return comma-separated dictionary slot names in declaration order
      */
     static String availableDictSlots() {
         return Arrays.stream(DictSlot.values())
-                .filter(CliUtils::isNotDeprecated)
+                .filter(CliUtils::isSupportedCliSlot)
                 .map(Enum::name)
                 .collect(Collectors.joining(", "));
     }
 
     /**
-     * Reports whether a dictionary slot is available for new CLI input.
+     * Reports whether a dictionary slot is supported for CLI input.
+     *
+     * <p>The legacy {@code JPVariants} and {@code JPVariantsRev} compatibility
+     * alias names are not accepted by the CLI.</p>
      *
      * @param slot dictionary slot to inspect
-     * @return {@code true} when the enum constant is not deprecated
+     * @return {@code true} unless the slot has a compatibility alias name
      */
-    private static boolean isNotDeprecated(DictSlot slot) {
-        try {
-            return !DictSlot.class
-                    .getField(slot.name())
-                    .isAnnotationPresent(Deprecated.class);
-        } catch (NoSuchFieldException e) {
-            throw new AssertionError(e);
-        }
+    private static boolean isSupportedCliSlot(DictSlot slot) {
+        String name = slot.name();
+        return !"JPVariants".equals(name) && !"JPVariantsRev".equals(name);
     }
 
     /**
@@ -232,7 +232,7 @@ public final class CliUtils {
         Map<String, DictSlot> map = new HashMap<>();
 
         for (DictSlot slot : DictSlot.values()) {
-            if (isNotDeprecated(slot)) {
+            if (isSupportedCliSlot(slot)) {
                 map.put(normalize(slot.name()), slot);
             }
         }

@@ -18,7 +18,13 @@ dependencies {
     // Generate GraalVM reflection config for picocli automatically
 //    annotationProcessor("info.picocli:picocli-codegen:4.7.7")
     //PDFBox
-    implementation("org.apache.pdfbox:pdfbox:3.0.7")
+    implementation("org.apache.pdfbox:pdfbox:3.0.8")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.3")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 // Application entrypoint (used by `run`, Jar manifest, etc.)
