@@ -64,12 +64,12 @@ jobs:
             capi_file: libopencc_fmmseg_capi.dylib
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -177,7 +177,7 @@ jobs:
           file "${{ matrix.wrapper_out }}" || true
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OpenccWrapper-${{ matrix.platform }}
           path: ${{ matrix.wrapper_out }}
@@ -187,7 +187,7 @@ jobs:
     name: Windows x64 DLL (prebuilt)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -201,7 +201,7 @@ jobs:
           echo "Found $DLL_PATH"
 
       - name: Upload artifact (Windows .dll)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OpenccWrapper-windows-x86_64
           path: openccjni/src/main/resources/openccjni/natives/windows-x86_64/OpenccWrapper.dll
@@ -211,12 +211,12 @@ jobs:
     name: Build JARs + CLI distributions (Java 8)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Set up Java 8
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "8"
@@ -275,7 +275,7 @@ jobs:
           find openccjni-cli/distributions -maxdepth 1 -type f -print || true
 
       - name: Upload build artifacts (jars + distributions)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: java-packages
           path: |
@@ -292,12 +292,12 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -410,7 +410,7 @@ jobs:
           fi
 
       - name: Create release (prerelease only if tag has '-')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ contains(github.ref_name, '-') && format('{0} (preview)', github.ref_name) || github.ref_name }}

@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Temurin JDK 21
         uses: actions/setup-java@v4
@@ -109,7 +109,7 @@ jobs:
           zip -9 OpenccJNI-natives-linux-x86_64.zip libOpenccWrapper.so
 
       - name: Upload artifact (Linux)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OpenccJNI-natives-linux-x86_64
           path: artifacts/linux-x86_64/OpenccJNI-natives-linux-x86_64.zip
@@ -120,10 +120,10 @@ jobs:
     runs-on: ubuntu-24.04-arm
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Temurin JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -190,7 +190,7 @@ jobs:
           zip -9 OpenccJNI-natives-linux-aarch64.zip libOpenccWrapper.so
 
       - name: Upload artifact (Linux aarch64)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OpenccJNI-natives-linux-aarch64
           path: artifacts/linux-aarch64/OpenccJNI-natives-linux-aarch64.zip
@@ -200,7 +200,7 @@ jobs:
     name: macOS arm64 (.dylib)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Temurin JDK 21
         uses: actions/setup-java@v4
@@ -236,7 +236,7 @@ jobs:
           (cd artifacts/macos-arm64 && zip -9 OpenccJNI-natives-macos-arm64.zip libOpenccWrapper.dylib)
 
       - name: Upload artifact (macOS)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OpenccJNI-natives-macos-arm64
           path: artifacts/macos-arm64/OpenccJNI-natives-macos-arm64.zip
@@ -246,7 +246,7 @@ jobs:
     name: macOS x86_64 (.dylib)
     runs-on: macos-15-intel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Temurin JDK 21
         uses: actions/setup-java@v4
@@ -282,7 +282,7 @@ jobs:
           (cd artifacts/macos-x86_64 && zip -9 OpenccJNI-natives-macos-x86_64.zip libOpenccWrapper.dylib)
 
       - name: Upload artifact (macOS x86_64)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OpenccJNI-natives-macos-x86_64
           path: artifacts/macos-x86_64/OpenccJNI-natives-macos-x86_64.zip
@@ -292,10 +292,10 @@ jobs:
     name: Windows x86_64 (.dll, built on Ubuntu, dyn CAPI + static libstdc++/libgcc)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Temurin JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -367,7 +367,7 @@ jobs:
           (cd "${GITHUB_WORKSPACE}/artifacts/windows-x86_64" && zip -9 OpenccJNI-natives-windows-x86_64.zip ./*)
 
       - name: Upload artifact (Windows)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OpenccJNI-natives-windows-x86_64
           path: artifacts/windows-x86_64/OpenccJNI-natives-windows-x86_64.zip
