@@ -11,11 +11,17 @@ import java.util.Objects;
  * <p>
  * This class provides direct bindings to the native functions for text conversion,
  * configuration, and parallelism. Typically, you should use {@link OpenCC} for
- * a higher-level and thread-safe interface. This wrapper is mainly intended for
+ * a higher-level interface with thread-local static helpers. This wrapper is mainly intended for
  * internal use by {@code OpenCC}, though it can be used directly if needed.
  * </p>
  *
- * <h2>Usage example:</h2>
+ * <p>Confine each wrapper to one thread, or synchronize access externally.
+ * Never close a wrapper while another operation is in progress. Use
+ * try-with-resources to release its native allocation. Instance operations
+ * other than {@link #close()} throw {@link IllegalStateException} after closure.
+ * Native last-error state belongs to the calling thread, rather than to a wrapper.</p>
+ *
+ * <h2>Usage example</h2>
  * <pre>{@code
  * try (OpenccWrapper wrapper = new OpenccWrapper()) {
  *     String result = wrapper.convert("汉字", "s2t", false);
@@ -78,7 +84,7 @@ public class OpenccWrapper implements AutoCloseable {
     );
 
     /**
-     * Normalizes CJK Compatibility Ideographs in a UTF-8 string.
+     * Converts text using the given configuration and punctuation setting.
      *
      * @param instance    pointer to native OpenCC instance
      * @param input       UTF-8 encoded input string
@@ -89,7 +95,7 @@ public class OpenccWrapper implements AutoCloseable {
     private native byte[] opencc_convert(long instance, byte[] input, byte[] config, boolean punctuation);
 
     /**
-     * Converts text using the given config and punctuation setting.
+     * Normalizes CJK Compatibility Ideographs in a UTF-8 string.
      *
      * @param instance pointer to native OpenCC instance
      * @param input    UTF-8 encoded input string
@@ -316,12 +322,11 @@ public class OpenccWrapper implements AutoCloseable {
     /**
      * Returns the native OpenCC-FMMSEG version string.
      *
-     * <p>The returned string is owned by the native library and is valid
-     * for the lifetime of the process.</p>
+     * <p>The result is a Java string and requires no native resource management.</p>
      *
      * <p>Example: {@code "0.9.2"}</p>
      *
-     * @return the native OpenCC-FMMSEG version string
+     * @return the native OpenCC-FMMSEG version string, or an empty string if unavailable
      * @since 1.2.0
      */
     public static String getVersionString() {
@@ -336,7 +341,9 @@ public class OpenccWrapper implements AutoCloseable {
      * @param config      conversion config key
      * @param punctuation whether to convert punctuation as well
      * @return the converted string
-     * @throws RuntimeException if conversion fails
+     * @throws NullPointerException  if {@code input} or {@code config} is {@code null}
+     * @throws RuntimeException      if conversion fails
+     * @throws IllegalStateException if this wrapper has been closed
      */
     public String convert(String input, String config, boolean punctuation) {
         ensureOpen();
@@ -363,20 +370,18 @@ public class OpenccWrapper implements AutoCloseable {
      * (for example via {@link #configNameToId(String)}). It avoids passing config strings
      * across JNI and lets the native layer select configs by numeric id.</p>
      *
-     * <p>Contract (native side):</p>
-     * <ul>
-     *   <li>If {@code instance} or {@code input} is null, native returns {@code null}.</li>
-     *   <li>If {@code configId} is invalid, native returns a newly allocated UTF-8 error string
-     *       like {@code "Invalid config: 123"} and also sets it as the last error.</li>
-     *   <li>Native returns {@code null} only for fatal errors (e.g. OOM / null inputs).</li>
-     * </ul>
+     * <p>Empty input returns an empty string before the configuration is checked.
+     * For non-empty input, an invalid configuration id returns a native error
+     * string and records that message in the calling thread's native error state.</p>
      *
      * @param input       input text (non-null)
      * @param configId    numeric OpenCC config id (opencc_config_t)
      * @param punctuation whether to convert punctuation as well
      * @return converted text; for invalid {@code configId}, returns the native error string
-     * @throws RuntimeException if the native conversion returns {@code null} unexpectedly
-     *                          (typically OOM or a fatal native error)
+     * @throws NullPointerException  if {@code input} is {@code null}
+     * @throws RuntimeException      if the native conversion returns {@code null} unexpectedly
+     *                               (typically OOM or a fatal native error)
+     * @throws IllegalStateException if this wrapper has been closed
      * @since 1.2.0
      */
     public String convertCfg(String input, int configId, boolean punctuation) {
@@ -422,6 +427,7 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param configId config enum; may be null
      * @return numeric config id (opencc_config_t), or {@code -1} if {@code configId} is null
+     * @throws IllegalStateException if this wrapper has been closed
      * @since 1.2.0
      */
     public int configNameToId(OpenccConfig configId) {
@@ -435,6 +441,7 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param configId numeric config id (opencc_config_t)
      * @return canonical config name (e.g. {@code "s2twp"}), or {@code null} if {@code configId} is invalid
+     * @throws IllegalStateException if this wrapper has been closed
      * @since 1.2.0
      */
     public String configIdToName(int configId) {
@@ -451,8 +458,9 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param input input text
      * @return compatibility-normalized text
-     * @throws NullPointerException if {@code input} is {@code null}
-     * @throws RuntimeException     if normalization fails
+     * @throws NullPointerException  if {@code input} is {@code null}
+     * @throws RuntimeException      if normalization fails
+     * @throws IllegalStateException if this wrapper has been closed
      */
     public String normalizeCompat(String input) {
         ensureOpen();
@@ -480,8 +488,9 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param input input text
      * @return extended compatibility-normalized text
-     * @throws NullPointerException if {@code input} is {@code null}
-     * @throws RuntimeException     if normalization fails
+     * @throws NullPointerException  if {@code input} is {@code null}
+     * @throws RuntimeException      if normalization fails
+     * @throws IllegalStateException if this wrapper has been closed
      */
     public String normalizeCompatExtended(String input) {
         ensureOpen();
@@ -516,6 +525,7 @@ public class OpenccWrapper implements AutoCloseable {
      * @throws NullPointerException     if {@code input} is {@code null}
      * @throws IllegalArgumentException if {@code level} is outside {@code 0..7}
      * @throws RuntimeException         if DeTofu processing fails
+     * @throws IllegalStateException    if this wrapper has been closed
      */
     public String deTofu(String input, int level) {
         ensureOpen();
@@ -542,6 +552,7 @@ public class OpenccWrapper implements AutoCloseable {
      * Returns whether this instance is operating in parallel mode.
      *
      * @return {@code true} if parallel mode is enabled, {@code false} otherwise
+     * @throws IllegalStateException if this wrapper has been closed
      */
     public boolean isParallel() {
         ensureOpen();
@@ -552,6 +563,7 @@ public class OpenccWrapper implements AutoCloseable {
      * Sets whether this instance should operate in parallel mode.
      *
      * @param isParallel {@code true} to enable parallel mode, {@code false} to disable
+     * @throws IllegalStateException if this wrapper has been closed
      */
     public void setParallel(boolean isParallel) {
         ensureOpen();
@@ -559,10 +571,14 @@ public class OpenccWrapper implements AutoCloseable {
     }
 
     /**
-     * Checks whether the input string contains Chinese characters.
+     * Classifies text as Traditional Chinese, Simplified Chinese, or mixed/undetermined.
      *
      * @param input the text to check
-     * @return non-zero if Chinese characters are detected, 0 otherwise
+     * @return {@code 1} for Traditional Chinese, {@code 2} for Simplified Chinese,
+     * or {@code 0} for mixed/undetermined input, including empty input;
+     * {@code -1} if the native library rejects the input
+     * @throws IllegalArgumentException if {@code input} is {@code null}
+     * @throws IllegalStateException    if this wrapper has been closed
      */
     public int zhoCheck(String input) {
         ensureOpen();
@@ -577,6 +593,7 @@ public class OpenccWrapper implements AutoCloseable {
      * Returns the last error message reported by the native library.
      *
      * @return error message, or empty string if none
+     * @throws IllegalStateException if this wrapper has been closed
      */
     public String getLastError() {
         ensureOpen();
@@ -590,6 +607,7 @@ public class OpenccWrapper implements AutoCloseable {
     /**
      * Clears the native last error so future reads reflect only new failures.
      *
+     * @throws IllegalStateException if this wrapper has been closed
      * @since 1.2.2
      */
     public void clearLastError() {
@@ -600,7 +618,7 @@ public class OpenccWrapper implements AutoCloseable {
     /**
      * Releases the underlying native resources associated with this instance.
      * <p>
-     * After calling {@code close()}, this instance should no longer be used.
+     * This method is idempotent. After closure, other instance operations throw {@link IllegalStateException}.
      * </p>
      */
     @Override

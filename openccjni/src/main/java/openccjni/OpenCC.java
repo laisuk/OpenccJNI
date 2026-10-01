@@ -30,8 +30,8 @@ import java.util.concurrent.ConcurrentMap;
  *
  * <p><b>Thread-safety:</b> A {@link ThreadLocal} wrapper instance is used for static helpers,
  * including the static {@code convert(...)} overloads. Each configured {@code OpenCC} owns one
- * native wrapper; conversion calls may run concurrently while its configuration remains unchanged.
- * Do not call {@code setConfig(...)} or {@link #close()} concurrently with conversion.
+ * native wrapper. Confine configured instances to one thread, or synchronize access externally.
+ * Do not change configuration or call {@link #close()} while an operation is in progress.
  *
  * <h2>Examples</h2>
  *
@@ -50,26 +50,38 @@ import java.util.concurrent.ConcurrentMap;
 public final class OpenCC implements AutoCloseable {
     // ---------- Static state ----------
 
-    /** Thread-local native wrapper used only by static convenience methods. */
+    /**
+     * Thread-local native wrapper used only by static convenience methods.
+     */
     private static final ThreadLocal<OpenccWrapper> WRAPPER =
             ThreadLocal.withInitial(OpenccWrapper::new);
 
-    /** Cache of stable enum-to-native configuration identifiers. */
+    /**
+     * Cache of stable enum-to-native configuration identifiers.
+     */
     private static final ConcurrentMap<OpenccConfig, Integer> CONFIG_ID_CACHE =
             new ConcurrentHashMap<>();
 
-    /** Java-side last-error state for the current thread. */
+    /**
+     * Java-side last-error state for the current thread.
+     */
     private static final ThreadLocal<String> LAST_ERROR = new ThreadLocal<>();
 
     // ---------- Instance state ----------
 
-    /** Native wrapper owned exclusively by this configured instance. */
+    /**
+     * Native wrapper owned exclusively by this configured instance.
+     */
     private final OpenccWrapper instanceWrapper;
 
-    /** Active conversion configuration. */
+    /**
+     * Active conversion configuration.
+     */
     private OpenccConfig configId;
 
-    /** Lazily resolved native configuration identifier; reset when the config changes. */
+    /**
+     * Lazily resolved native configuration identifier; reset when the config changes.
+     */
     private volatile int resolvedNumericId = -1;
 
     // ---------- Constructors / factories ----------
@@ -119,14 +131,14 @@ public final class OpenCC implements AutoCloseable {
     /**
      * Creates an instance with the default {@code s2t} configuration and custom dictionaries.
      *
-     * <p>Dictionary files are normalized and read during construction only.
+     * <p>Dictionary entries are parsed and read during construction only.
      * Use try-with-resources to release the instance-owned native wrapper.</p>
      *
      * @param specs custom dictionary specifications; {@code null} or empty uses
      *              only the built-in dictionaries
      * @throws IllegalArgumentException if a dictionary line is malformed
-     * @throws RuntimeException if a dictionary file cannot be read or the native
-     *                          custom converter cannot be created
+     * @throws RuntimeException         if a dictionary file cannot be read or the native
+     *                                  custom converter cannot be created
      * @since 1.4.0
      */
     public OpenCC(List<CustomDictSpec> specs) {
@@ -136,18 +148,18 @@ public final class OpenCC implements AutoCloseable {
     /**
      * Creates an instance with a configuration and immutable custom dictionaries.
      *
-     * <p>Each referenced UTF-8 dictionary file is read exactly once. Its mappings
+     * <p>Each UTF-8 dictionary path is read once per occurrence in the specifications. Its mappings
      * are copied into one native wrapper owned by this object, so later changes to
      * the files or specification lists do not affect conversion.</p>
      *
      * @param config conversion configuration; {@code null} selects the default
      *               configuration and records {@code "Config is null"}
-     * @param specs custom dictionary specifications; {@code null} or empty uses
-     *              only the built-in dictionaries
-     * @throws NullPointerException if a specification or one of its paths is {@code null}
+     * @param specs  custom dictionary specifications; {@code null} or empty uses
+     *               only the built-in dictionaries
+     * @throws NullPointerException     if a specification or one of its paths is {@code null}
      * @throws IllegalArgumentException if a dictionary line is malformed
-     * @throws RuntimeException if a dictionary file cannot be read or the native
-     *                          custom converter cannot be created
+     * @throws RuntimeException         if a dictionary file cannot be read or the native
+     *                                  custom converter cannot be created
      * @since 1.4.0
      */
     public OpenCC(
@@ -204,7 +216,7 @@ public final class OpenCC implements AutoCloseable {
      * {@code input} unchanged; otherwise the last error is cleared before
      * delegating to the native conversion.</p>
      *
-     * @param input  input text (non-null; empty allowed)
+     * @param input  input text; may be {@code null} or empty
      * @param config configuration key (e.g., {@code "s2t"}, {@code "tw2s"})
      * @return converted text; {@code null} if {@code input} is null; {@code ""}
      * if {@code input} is empty; {@code input} unchanged if {@code config} is invalid
@@ -228,7 +240,7 @@ public final class OpenCC implements AutoCloseable {
      *   <li>Otherwise, clears the last error before delegating to the enum-based overload.</li>
      * </ul>
      *
-     * @param input       input text (non-null; empty allowed)
+     * @param input       input text; may be {@code null} or empty
      * @param config      configuration key (e.g., {@code "s2t"}, {@code "tw2s"})
      * @param punctuation whether to convert punctuation
      * @return converted text; {@code null} if {@code input} is null; {@code ""}
@@ -308,7 +320,8 @@ public final class OpenCC implements AutoCloseable {
      *
      * @param text input text (maybe null/empty)
      * @return {@code 1} for Traditional Chinese, {@code 2} for Simplified Chinese,
-     * or {@code 0} for mixed/undetermined input (including null or empty input)
+     * or {@code 0} for mixed/undetermined input (including null or empty input);
+     * {@code -1} if the native library rejects non-empty input
      * @since 1.0.0
      */
     public static int zhoCheck(String text) {
@@ -365,9 +378,12 @@ public final class OpenCC implements AutoCloseable {
      * empty input clears the last error and returns {@code ""}; otherwise the
      * last error is cleared before native conversion.</p>
      *
-     * @param input input text (non-null; empty allowed)
+     * @param input input text; may be {@code null} or empty
      * @return converted text; {@code null} if {@code input} is null; {@code ""}
      * if {@code input} is empty
+     * @throws IllegalStateException if this instance has been closed and {@code input} is non-null,
+     *                               or if its native configuration cannot be resolved
+     * @throws RuntimeException      if native conversion fails
      * @since 1.0.0
      */
     public String convert(String input) {
@@ -386,10 +402,13 @@ public final class OpenCC implements AutoCloseable {
      *   <li>Otherwise, clears the last error before calling the native wrapper.</li>
      * </ul>
      *
-     * @param input       input text (non-null; empty allowed)
+     * @param input       input text; may be {@code null} or empty
      * @param punctuation whether to convert punctuation
      * @return converted text; {@code null} if {@code input} is null; {@code ""}
      * if {@code input} is empty
+     * @throws IllegalStateException if this instance has been closed and {@code input} is non-null,
+     *                               or if its native configuration cannot be resolved
+     * @throws RuntimeException      if native conversion fails
      * @since 1.0.0
      */
     public String convert(String input, boolean punctuation) {
@@ -417,9 +436,9 @@ public final class OpenCC implements AutoCloseable {
      *
      * @param input input text
      * @return compatibility-normalized text
-     * @throws NullPointerException if {@code input} is {@code null}
+     * @throws NullPointerException  if {@code input} is {@code null}
      * @throws IllegalStateException if this instance has been closed
-     * @throws RuntimeException if native normalization fails
+     * @throws RuntimeException      if native normalization fails
      * @since 1.4.0
      */
     public String normalizeCompat(String input) {
@@ -436,9 +455,9 @@ public final class OpenCC implements AutoCloseable {
      *
      * @param input input text
      * @return extended compatibility-normalized text
-     * @throws NullPointerException if {@code input} is {@code null}
+     * @throws NullPointerException  if {@code input} is {@code null}
      * @throws IllegalStateException if this instance has been closed
-     * @throws RuntimeException if native normalization fails
+     * @throws RuntimeException      if native normalization fails
      * @since 1.4.0
      */
     public String normalizeCompatExtended(String input) {
@@ -458,9 +477,9 @@ public final class OpenCC implements AutoCloseable {
      * @param input input text
      * @param level DeTofu fallback threshold
      * @return DeTofu-processed text
-     * @throws NullPointerException if {@code input} or {@code level} is {@code null}
+     * @throws NullPointerException  if {@code input} or {@code level} is {@code null}
      * @throws IllegalStateException if this instance has been closed
-     * @throws RuntimeException if native DeTofu processing fails
+     * @throws RuntimeException      if native DeTofu processing fails
      * @since 1.4.0
      */
     public String deTofu(String input, DeTofuLevel level) {
@@ -509,7 +528,7 @@ public final class OpenCC implements AutoCloseable {
      * (for example {@code "s2t"}, {@code "t2twp"}) and enum-style names
      * (for example {@code "S2T"}, {@code "T2TWP"}).</p>
      *
-     * <p>This method performs no allocation beyond parsing and never throws.</p>
+     * <p>Leading and trailing whitespace is ignored. Null, blank, and unknown names return {@code false}.</p>
      *
      * @param value the configuration string to check; may be {@code null}
      * @return {@code true} if the configuration is supported; {@code false} otherwise
@@ -560,7 +579,12 @@ public final class OpenCC implements AutoCloseable {
     // ---------- Error handling ----------
 
     /**
-     * Returns the last error message (Java-side error has priority; otherwise the native error).
+     * Returns the last error message for the calling thread.
+     *
+     * <p>A Java-side validation error takes priority over the native error. Native
+     * errors are shared by operations on the same calling thread, including
+     * operations on different configured instances. Read the error immediately
+     * after the operation of interest.</p>
      *
      * @return error message, or empty string if none
      */
@@ -573,9 +597,9 @@ public final class OpenCC implements AutoCloseable {
     }
 
     /**
-     * Sets the last error string (Java-side).
+     * Sets the Java-side last error for the calling thread.
      *
-     * @param lastError error message (maybe null)
+     * @param lastError error message; {@code null} also clears the native error; an empty string only removes Java-side error precedence
      * @since 1.0.0
      */
     public static void setLastError(String lastError) {

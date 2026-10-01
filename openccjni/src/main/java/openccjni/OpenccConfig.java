@@ -155,7 +155,7 @@ public enum OpenccConfig {
      *
      * <p>This method defines the single authoritative default configuration
      * used by the Java binding whenever no configuration is explicitly provided
-     * or when an invalid configuration is encountered during tolerant parsing.</p>
+     * or when an invalid configuration is supplied to an {@code OpenCC} constructor or setter.</p>
      *
      * @return the default OpenCC configuration ({@link #S2T})
      */
@@ -208,7 +208,7 @@ public enum OpenccConfig {
      * lowercase names (for example {@code "s2t"}, {@code "t2twp"}) and
      * enum-style names (for example {@code "S2T"}, {@code "T2TWP"}).</p>
      *
-     * <p>This method never throws and is suitable for tolerant input handling.</p>
+     * <p>Leading and trailing whitespace is ignored. Null, blank, and unknown names return {@code null}; parsing does not load native libraries.</p>
      *
      * @param value the configuration string to parse; may be {@code null}
      * @return the corresponding {@link OpenccConfig}, or {@code null} if invalid

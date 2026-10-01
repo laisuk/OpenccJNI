@@ -11,11 +11,11 @@ import java.util.Objects;
  *
  * <p>Each file must be UTF-8 text with one mapping per line in the form
  * {@code source<TAB>target}. Empty lines and lines beginning with {@code #} or
- * {@code //} are ignored. When a target contains whitespace, only its first
+ * {@code //} are ignored. Leading and trailing whitespace is trimmed. When a target contains spaces or tabs, only its first
  * token is used.</p>
  *
  * <p>This value object is immutable. Its path list is defensively copied.
- * Files themselves are read exactly once when the receiving {@link OpenCC}
+ * Files themselves are read once per path occurrence when the receiving {@link OpenCC}
  * instance is constructed; later file changes do not affect that converter.</p>
  *
  * @see OpenCC#OpenCC(java.util.List)
@@ -23,13 +23,19 @@ import java.util.Objects;
  * @since 1.4.0
  */
 public final class CustomDictSpec {
-    /** Dictionary slot that receives the custom mappings. */
+    /**
+     * Dictionary slot that receives the custom mappings.
+     */
     public final DictSlot slot;
 
-    /** Immutable, ordered list of UTF-8 dictionary file paths. */
+    /**
+     * Immutable, ordered list of UTF-8 dictionary file paths.
+     */
     public final List<Path> paths;
 
-    /** Merge behavior applied to {@link #slot}. */
+    /**
+     * Merge behavior applied to {@link #slot}.
+     */
     public final CustomDictMode mode;
 
     private CustomDictSpec(
@@ -78,13 +84,13 @@ public final class CustomDictSpec {
      * <p>Files are read in list order and their mappings are combined before
      * the selected mode is applied.</p>
      *
-     * @param slot dictionary slot to modify; must not be {@code null}
+     * @param slot  dictionary slot to modify; must not be {@code null}
      * @param paths ordered dictionary file paths; must not be {@code null},
      *              empty, or contain {@code null}
-     * @param mode merge behavior; must not be {@code null}
+     * @param mode  merge behavior; must not be {@code null}
      * @return immutable custom dictionary specification
-     * @throws NullPointerException if {@code slot}, {@code paths},
-     *                              {@code mode}, or a path is {@code null}
+     * @throws NullPointerException     if {@code slot}, {@code paths},
+     *                                  {@code mode}, or a path is {@code null}
      * @throws IllegalArgumentException if {@code paths} is empty
      */
     public static CustomDictSpec fromFiles(

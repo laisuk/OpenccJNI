@@ -59,7 +59,7 @@ import java.util.zip.ZipOutputStream;
 public class OfficeHelper {
 
     /**
-     * Supported logical Office/EPUB format names.
+     * Unmodifiable list of supported lowercase Office/EPUB format names.
      */
     public static final List<String> OFFICE_FORMATS = Collections.unmodifiableList(
             Arrays.asList("docx", "xlsx", "pptx", "odt", "ods", "odp", "epub")
@@ -146,6 +146,7 @@ public class OfficeHelper {
          *
          * @param success whether conversion succeeded
          * @param message result message; must not be {@code null}
+         * @throws NullPointerException if {@code message} is {@code null}
          */
         public FileResult(boolean success, String message) {
             super(success, message);
@@ -172,6 +173,7 @@ public class OfficeHelper {
          * @param success whether conversion succeeded
          * @param message result message; must not be {@code null}
          * @param data    converted package bytes, or {@code null}
+         * @throws NullPointerException if {@code message} is {@code null}
          */
         public MemoryResult(boolean success, String message, byte[] data) {
             super(success, message);
@@ -199,6 +201,11 @@ public class OfficeHelper {
      *
      * <p>For EPUB, {@code mimetype} is emitted first and stored without compression.
      * The rebuilt archive is validated before it is returned.</p>
+     *
+     * <p>Format names are trimmed and matched case-insensitively. Invalid arguments,
+     * archive failures, and callback exceptions or null results are reported through
+     * {@link Result#success} and {@link Result#message}. The callback runs synchronously
+     * and must preserve markup and escaping as described by {@link TextConverter}.</p>
      *
      * @param inputBytes    complete source package bytes
      * @param format        logical format name:
@@ -296,6 +303,9 @@ public class OfficeHelper {
      * <p>This convenience overload preserves the established API and adapts
      * {@link OpenCC} to the generic {@link TextConverter} core.</p>
      *
+     * <p>The supplied converter remains owned by the caller and is not closed.
+     * A null converter or a conversion failure produces a failed result.</p>
+     *
      * @param inputBytes  complete source package bytes
      * @param format      logical format name
      * @param converter   initialized OpenCC converter
@@ -332,6 +342,11 @@ public class OfficeHelper {
      * <p>The candidate package is written to a sibling temporary file, validated,
      * and only then published to {@code outputFile}. Existing output therefore
      * remains untouched if conversion or validation fails.</p>
+     *
+     * <p>Format names are trimmed and matched case-insensitively. Invalid arguments,
+     * archive failures, and callback exceptions or null results are reported through
+     * {@link Result#success} and {@link Result#message}. The callback runs synchronously
+     * and must preserve markup and escaping as described by {@link TextConverter}.</p>
      *
      * @param inputFile     source Office/EPUB package
      * @param outputFile    destination package
@@ -470,6 +485,9 @@ public class OfficeHelper {
      *
      * <p>This convenience overload adapts OpenCC conversion to the generic
      * {@link TextConverter} package-processing core.</p>
+     *
+     * <p>The supplied converter remains owned by the caller and is not closed.
+     * A null converter or a conversion failure produces a failed result.</p>
      *
      * @param inputFile   source Office/EPUB package
      * @param outputFile  destination package
