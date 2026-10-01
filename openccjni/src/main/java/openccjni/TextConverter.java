@@ -33,7 +33,7 @@ package openccjni;
  * }
  * }</pre>
  *
- * @since 1.5.0
+ * @since 1.4.0
  */
 @FunctionalInterface
 public interface TextConverter {

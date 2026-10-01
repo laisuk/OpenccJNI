@@ -78,7 +78,7 @@ public class OpenccWrapper implements AutoCloseable {
     );
 
     /**
-     * Converts text using the given config and punctuation setting.
+     * Normalizes CJK Compatibility Ideographs in a UTF-8 string.
      *
      * @param instance    pointer to native OpenCC instance
      * @param input       UTF-8 encoded input string
@@ -87,6 +87,35 @@ public class OpenccWrapper implements AutoCloseable {
      * @return UTF-8 encoded result, or {@code null} if conversion failed
      */
     private native byte[] opencc_convert(long instance, byte[] input, byte[] config, boolean punctuation);
+
+    /**
+     * Converts text using the given config and punctuation setting.
+     *
+     * @param instance pointer to native OpenCC instance
+     * @param input    UTF-8 encoded input string
+     * @return UTF-8 encoded result, or {@code null} if normalization failed
+     */
+    private native byte[] opencc_normalize_compat(long instance, byte[] input);
+
+    /**
+     * Applies extended compatibility normalization to a UTF-8 string.
+     *
+     * @param instance pointer to native OpenCC instance
+     * @param input    UTF-8 encoded input string
+     * @return UTF-8 encoded result, or {@code null} if normalization failed
+     */
+    private native byte[] opencc_normalize_compat_extended(long instance, byte[] input);
+
+    /**
+     * Applies the built-in DeTofu display-compatibility fallback.
+     *
+     * @param instance pointer to native OpenCC instance
+     * @param input    UTF-8 encoded input string
+     * @param level    DeTofu threshold level ({@code 0 = ExtB} through
+     *                 {@code 7 = ExtI})
+     * @return UTF-8 encoded result, or {@code null} if DeTofu failed
+     */
+    private native byte[] opencc_detofu(long instance, byte[] input, int level);
 
     /**
      * Returns whether parallel mode is enabled for this instance.
@@ -193,11 +222,11 @@ public class OpenccWrapper implements AutoCloseable {
      *
      * @param specs low-level custom dictionary specifications; must not be
      *              {@code null} or contain {@code null}
-     * @throws NullPointerException if the list, a specification, its pair list,
-     *                              or a pair is {@code null}
+     * @throws NullPointerException     if the list, a specification, its pair list,
+     *                                  or a pair is {@code null}
      * @throws IllegalArgumentException if a source or target contains an embedded
      *                                  NUL character
-     * @throws RuntimeException if the native instance cannot be created
+     * @throws RuntimeException         if the native instance cannot be created
      * @since 1.4.0
      */
     public OpenccWrapper(List<OpenccCustomDictSpec> specs) {
@@ -415,6 +444,101 @@ public class OpenccWrapper implements AutoCloseable {
     }
 
     /**
+     * Normalizes CJK Compatibility Ideographs in the input text.
+     *
+     * <p>This applies the built-in CJK Compatibility Ideograph normalization
+     * provided by the native OpenCC implementation.</p>
+     *
+     * @param input input text
+     * @return compatibility-normalized text
+     * @throws NullPointerException if {@code input} is {@code null}
+     * @throws RuntimeException     if normalization fails
+     */
+    public String normalizeCompat(String input) {
+        ensureOpen();
+        Objects.requireNonNull(input, "input cannot be null");
+
+        if (input.isEmpty()) return "";
+
+        byte[] inputBytes = input.getBytes(StandardCharsets.UTF_8);
+        byte[] rawOutput = opencc_normalize_compat(instance, inputBytes);
+
+        if (rawOutput == null) {
+            throw new RuntimeException(
+                    "Compatibility normalization failed: " + getLastError());
+        }
+
+        return new String(rawOutput, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Applies extended compatibility normalization to the input text.
+     *
+     * <p>This combines CJK Compatibility Ideograph normalization with the
+     * curated Unicode compatibility mappings provided by the native OpenCC
+     * implementation.</p>
+     *
+     * @param input input text
+     * @return extended compatibility-normalized text
+     * @throws NullPointerException if {@code input} is {@code null}
+     * @throws RuntimeException     if normalization fails
+     */
+    public String normalizeCompatExtended(String input) {
+        ensureOpen();
+        Objects.requireNonNull(input, "input cannot be null");
+
+        if (input.isEmpty()) return "";
+
+        byte[] inputBytes = input.getBytes(StandardCharsets.UTF_8);
+        byte[] rawOutput =
+                opencc_normalize_compat_extended(instance, inputBytes);
+
+        if (rawOutput == null) {
+            throw new RuntimeException(
+                    "Extended compatibility normalization failed: "
+                            + getLastError());
+        }
+
+        return new String(rawOutput, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Applies the built-in DeTofu display-compatibility fallback.
+     *
+     * <p>The selected level is inclusive. For example, level {@code 0}
+     * (ExtB) applies mappings for ExtB through ExtI, while level {@code 7}
+     * applies ExtI mappings only.</p>
+     *
+     * @param input input text
+     * @param level DeTofu threshold level ({@code 0 = ExtB} through
+     *              {@code 7 = ExtI})
+     * @return DeTofu-processed text
+     * @throws NullPointerException     if {@code input} is {@code null}
+     * @throws IllegalArgumentException if {@code level} is outside {@code 0..7}
+     * @throws RuntimeException         if DeTofu processing fails
+     */
+    public String deTofu(String input, int level) {
+        ensureOpen();
+        Objects.requireNonNull(input, "input cannot be null");
+
+        if (level < 0 || level > 7) {
+            throw new IllegalArgumentException(
+                    "DeTofu level must be between 0 (ExtB) and 7 (ExtI)");
+        }
+
+        if (input.isEmpty()) return "";
+
+        byte[] inputBytes = input.getBytes(StandardCharsets.UTF_8);
+        byte[] rawOutput = opencc_detofu(instance, inputBytes, level);
+
+        if (rawOutput == null) {
+            throw new RuntimeException("DeTofu failed: " + getLastError());
+        }
+
+        return new String(rawOutput, StandardCharsets.UTF_8);
+    }
+
+    /**
      * Returns whether this instance is operating in parallel mode.
      *
      * @return {@code true} if parallel mode is enabled, {@code false} otherwise
@@ -551,8 +675,8 @@ public class OpenccWrapper implements AutoCloseable {
         /**
          * Creates a low-level custom dictionary specification.
          *
-         * @param slot native {@code opencc_dict_slot_t} value
-         * @param mode native {@code opencc_custom_dict_mode_t} value
+         * @param slot  native {@code opencc_dict_slot_t} value
+         * @param mode  native {@code opencc_custom_dict_mode_t} value
          * @param pairs mappings to apply; must not be {@code null}
          * @throws NullPointerException if {@code pairs} is {@code null}
          */

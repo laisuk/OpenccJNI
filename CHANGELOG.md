@@ -8,6 +8,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [1.4.0] - Unreleased
 
+### CLI synchronization with OpenccJava v1.5.0
+
+- Added the public `TextConverter` callback and shared native-backed CLI pipeline:
+  compatibility normalization (extended takes precedence), OpenCC/punctuation conversion, then DeTofu.
+- Added `-n` / `--norm-compat`, `-E` / `--norm-compat-extended`, and `--detofu` to text, Office,
+  and PDF conversion, including stable level aliases and extract-only ignored-option reporting.
+- Replaced temporary-directory Office extraction with streaming ZIP reconstruction, in-memory byte-array
+  processing, validated transactional file publication, EPUB mimetype ordering, and safe entry checks.
+  Retained existing OpenCC overloads and the public ZIP utility through one package pipeline.
+- Synchronized help/completion, text config validation, encoding behavior, PDF progress, and error exits.
+  Commands return exit codes so the instance-owned JNI wrapper closes before the main process exits.
+- Added Windows CLI and Office regression coverage. Native loading and packaging remain unchanged.
+- Intentionally omitted `dictgen`, `--detofu-file`, and pure-Java engine/mapping code; these are not
+  supplied by the current native wrapper. macOS/Linux validation awaits updated JNI bridges.
+
 ### Added
 
 - Added immutable custom dictionaries to the Java API through `CustomDictSpec`, `CustomDictMode`, `DictSlot`, and the

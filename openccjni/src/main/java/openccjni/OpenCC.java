@@ -410,6 +410,65 @@ public final class OpenCC implements AutoCloseable {
     }
 
     /**
+     * Normalizes CJK Compatibility Ideographs in the input text.
+     *
+     * <p>This operation uses the native wrapper owned by this {@code OpenCC}
+     * instance and is independent of the active conversion configuration.</p>
+     *
+     * @param input input text
+     * @return compatibility-normalized text
+     * @throws NullPointerException if {@code input} is {@code null}
+     * @throws IllegalStateException if this instance has been closed
+     * @throws RuntimeException if native normalization fails
+     * @since 1.4.0
+     */
+    public String normalizeCompat(String input) {
+        return instanceWrapper.normalizeCompat(input);
+    }
+
+    /**
+     * Applies extended Unicode compatibility normalization to the input text.
+     *
+     * <p>This combines CJK Compatibility Ideograph normalization with the
+     * extended compatibility mappings provided by the native library.
+     * The operation uses the native wrapper owned by this {@code OpenCC}
+     * instance and is independent of the active conversion configuration.</p>
+     *
+     * @param input input text
+     * @return extended compatibility-normalized text
+     * @throws NullPointerException if {@code input} is {@code null}
+     * @throws IllegalStateException if this instance has been closed
+     * @throws RuntimeException if native normalization fails
+     * @since 1.4.0
+     */
+    public String normalizeCompatExtended(String input) {
+        return instanceWrapper.normalizeCompatExtended(input);
+    }
+
+    /**
+     * Applies the built-in DeTofu display-compatibility fallback.
+     *
+     * <p>The selected level is inclusive. For example,
+     * {@link DeTofuLevel#EXT_B} applies mappings for ExtB through ExtI,
+     * while {@link DeTofuLevel#EXT_I} applies ExtI mappings only.</p>
+     *
+     * <p>This operation uses the native wrapper owned by this {@code OpenCC}
+     * instance and is independent of the active conversion configuration.</p>
+     *
+     * @param input input text
+     * @param level DeTofu fallback threshold
+     * @return DeTofu-processed text
+     * @throws NullPointerException if {@code input} or {@code level} is {@code null}
+     * @throws IllegalStateException if this instance has been closed
+     * @throws RuntimeException if native DeTofu processing fails
+     * @since 1.4.0
+     */
+    public String deTofu(String input, DeTofuLevel level) {
+        Objects.requireNonNull(level, "level cannot be null");
+        return instanceWrapper.deTofu(input, level.nativeValue());
+    }
+
+    /**
      * Releases only this object's instance-owned native wrapper.
      *
      * <p>This method is idempotent. Static convenience methods and converters

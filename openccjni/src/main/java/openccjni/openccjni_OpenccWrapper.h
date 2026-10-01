@@ -49,6 +49,30 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert
 
 /*
  * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_normalize_compat
+ * Signature: (J[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1normalize_1compat
+  (JNIEnv *, jobject, jlong, jbyteArray);
+
+/*
+ * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_normalize_compat_extended
+ * Signature: (J[B)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1normalize_1compat_1extended
+  (JNIEnv *, jobject, jlong, jbyteArray);
+
+/*
+ * Class:     openccjni_OpenccWrapper
+ * Method:    opencc_detofu
+ * Signature: (J[BI)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1detofu
+  (JNIEnv *, jobject, jlong, jbyteArray, jint);
+
+/*
+ * Class:     openccjni_OpenccWrapper
  * Method:    opencc_get_parallel
  * Signature: (J)Z
  */

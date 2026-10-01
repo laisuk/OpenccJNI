@@ -265,6 +265,251 @@ public class OpenCCTests {
         }
     }
 
+
+    // ------------------------------------------------------------------------
+    // Compatibility normalization / DeTofu JNI wrapper tests
+    // ------------------------------------------------------------------------
+
+    @Test
+    void testNormalizeCompat() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertEquals("金庸", w.normalizeCompat("金庸"));
+        }
+    }
+
+    @Test
+    void testNormalizeCompatNonBmpCompatibilityIdeographs() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertEquals("鼖鼻𪘀", w.normalizeCompat("鼖鼻𪘀"));
+        }
+    }
+
+    @Test
+    void testNormalizeCompatExtended() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertEquals(
+                    "聽聽奇美玉石瓶器音",
+                    w.normalizeCompatExtended("聼聼竒羙⽟䂖甁噐⾳")
+            );
+        }
+    }
+
+    @Test
+    void testNormalizeCompatExtendedIncludesCjkCompatNormalization() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertEquals(
+                    "天龍八部書裡的聽眾",
+                    w.normalizeCompatExtended("天龍八部書裡的聼眾")
+            );
+        }
+    }
+
+    @Test
+    void testDeTofuBuiltin() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertEquals("骖騑", w.deTofu("骖𬴂", 0));
+        }
+    }
+
+    @Test
+    void testDeTofuPreservesUnmappedCharacter() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertEquals("𱁬", w.deTofu("𱁬", 0));
+        }
+    }
+
+    @Test
+    void testNormalizationAndDeTofuEmptyInput() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertEquals("", w.normalizeCompat(""));
+            assertEquals("", w.normalizeCompatExtended(""));
+            assertEquals("", w.deTofu("", 0));
+        }
+    }
+
+    @Test
+    void testNormalizationAndDeTofuRejectNullInput() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertThrows(NullPointerException.class, () -> w.normalizeCompat(null));
+            assertThrows(NullPointerException.class, () -> w.normalizeCompatExtended(null));
+            assertThrows(NullPointerException.class, () -> w.deTofu(null, 0));
+        }
+    }
+
+    @Test
+    void testDeTofuRejectsInvalidLevel() {
+        try (OpenccWrapper w = new OpenccWrapper()) {
+            assertThrows(IllegalArgumentException.class, () -> w.deTofu("𬴂", -1));
+            assertThrows(IllegalArgumentException.class, () -> w.deTofu("𬴂", 8));
+        }
+    }
+
+    @Test
+    void testNormalizationAndDeTofuRejectClosedWrapper() {
+        OpenccWrapper w = new OpenccWrapper();
+        w.close();
+
+        assertThrows(IllegalStateException.class, () -> w.normalizeCompat("金"));
+        assertThrows(IllegalStateException.class, () -> w.normalizeCompatExtended("聼"));
+        assertThrows(IllegalStateException.class, () -> w.deTofu("𬴂", 0));
+    }
+
+    // ------------------------------------------------------------------------
+// High-level normalization / DeTofu API tests
+// ------------------------------------------------------------------------
+
+    @Test
+    void testOpenCCNormalizeCompat() {
+        try (OpenCC cc = new OpenCC()) {
+            assertEquals("金庸", cc.normalizeCompat("金庸"));
+        }
+    }
+
+    @Test
+    void testOpenCCNormalizeCompatNonBmp() {
+        try (OpenCC cc = new OpenCC()) {
+            assertEquals(
+                    "鼖鼻𪘀",
+                    cc.normalizeCompat("鼖鼻𪘀")
+            );
+        }
+    }
+
+    @Test
+    void testOpenCCNormalizeCompatExtended() {
+        try (OpenCC cc = new OpenCC()) {
+            assertEquals(
+                    "聽聽奇美玉石瓶器音",
+                    cc.normalizeCompatExtended("聼聼竒羙⽟䂖甁噐⾳")
+            );
+        }
+    }
+
+    @Test
+    void testOpenCCNormalizeCompatExtendedIncludesCjkCompat() {
+        try (OpenCC cc = new OpenCC()) {
+            assertEquals(
+                    "天龍八部書裡的聽眾",
+                    cc.normalizeCompatExtended("天龍八部書裡的聼眾")
+            );
+        }
+    }
+
+    @Test
+    void testOpenCCDeTofu() {
+        try (OpenCC cc = new OpenCC()) {
+            assertEquals(
+                    "骖騑",
+                    cc.deTofu("骖𬴂", DeTofuLevel.EXT_B)
+            );
+        }
+    }
+
+    @Test
+    void testOpenCCDeTofuPreservesUnmappedCharacter() {
+        try (OpenCC cc = new OpenCC()) {
+            assertEquals(
+                    "𱁬",
+                    cc.deTofu("𱁬", DeTofuLevel.EXT_B)
+            );
+        }
+    }
+
+    @Test
+    void testOpenCCDeTofuRejectsNullLevel() {
+        try (OpenCC cc = new OpenCC()) {
+            assertThrows(
+                    NullPointerException.class,
+                    () -> cc.deTofu("𬴂", null)
+            );
+        }
+    }
+
+    @Test
+    void testOpenCCNormalizationAndDeTofuEmptyInput() {
+        try (OpenCC cc = new OpenCC()) {
+            assertEquals("", cc.normalizeCompat(""));
+            assertEquals("", cc.normalizeCompatExtended(""));
+            assertEquals("", cc.deTofu("", DeTofuLevel.EXT_B));
+        }
+    }
+
+    @Test
+    void testOpenCCNormalizationAndDeTofuRejectNullInput() {
+        try (OpenCC cc = new OpenCC()) {
+            assertThrows(
+                    NullPointerException.class,
+                    () -> cc.normalizeCompat(null)
+            );
+            assertThrows(
+                    NullPointerException.class,
+                    () -> cc.normalizeCompatExtended(null)
+            );
+            assertThrows(
+                    NullPointerException.class,
+                    () -> cc.deTofu(null, DeTofuLevel.EXT_B)
+            );
+        }
+    }
+
+    @Test
+    void testOpenCCNormalizationAndDeTofuRejectClosedInstance() {
+        OpenCC cc = new OpenCC();
+        cc.close();
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> cc.normalizeCompat("金")
+        );
+        assertThrows(
+                IllegalStateException.class,
+                () -> cc.normalizeCompatExtended("聼")
+        );
+        assertThrows(
+                IllegalStateException.class,
+                () -> cc.deTofu("𬴂", DeTofuLevel.EXT_B)
+        );
+    }
+
+    @Test
+    void testOpenCCNormalizeDeTofuAndConvertComposition() {
+        try (OpenCC cc = new OpenCC(OpenccConfig.T2S)) {
+            String normalized =
+                    cc.normalizeCompatExtended("天龍八部書裡的聼眾");
+
+            assertEquals(
+                    "天龍八部書裡的聽眾",
+                    normalized
+            );
+
+            assertEquals(
+                    "天龙八部书里的听众",
+                    cc.convert(normalized)
+            );
+
+            assertEquals(
+                    "俨骖騑于上路",
+                    cc.deTofu(
+                            cc.convert("儼驂騑於上路"),
+                            DeTofuLevel.EXT_B
+                    )
+            );
+        }
+    }
+
+    @Test
+    void testSealConfigsSupported() {
+        assertEquals(OpenccConfig.S2SEAL, OpenccConfig.tryParse("s2seal"));
+        assertEquals(OpenccConfig.T2SEAL, OpenccConfig.tryParse("T2SEAL"));
+        assertEquals(OpenccConfig.SEAL2S, OpenccConfig.tryParse("seal2s"));
+        assertEquals(OpenccConfig.SEAL2T, OpenccConfig.tryParse("SEAL2T"));
+
+        assertTrue(OpenccConfig.isValidConfig("s2seal"));
+        assertTrue(OpenccConfig.isValidConfig("t2seal"));
+        assertTrue(OpenccConfig.isValidConfig("seal2s"));
+        assertTrue(OpenccConfig.isValidConfig("seal2t"));
+    }
+
 }
 
 

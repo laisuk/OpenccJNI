@@ -20,6 +20,8 @@
 - **Auto native load**: `OpenCC` automatically loads the native library (system-first, then from resources) — you
   typically **do not need** to call `NativeLibLoader` yourself.
 - **Wide config support**: Common OpenCC configurations out of the box (see below).
+- **Small Seal Script conversion**: Simplified/Traditional Chinese ↔ Small Seal Script with the opencc-fmmseg v0.13.0
+  native engine.
 
 > This repository targets [**opencc-fmmseg-capi**](https://github.com/laisuk/opencc-fmmseg) only. Jieba JNI will be
 > provided in a separate repo later.
@@ -132,7 +134,8 @@ keys win; `Override` clears only the selected slot before inserting custom mappi
 s2t, t2s, s2tw, tw2s, s2twp, tw2sp,
 s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp,
 tw2t, tw2tp, t2hk, t2hkp, hk2t, hk2tp,
-t2jp, jp2t
+t2jp, jp2t,
+s2seal, t2seal, seal2s, seal2t
 ```
 
 Example:
@@ -330,6 +333,9 @@ new OpenCC(OpenccConfig configId, List<CustomDictSpec> specs)
 // Conversion
 cc.convert(String input)
 cc.convert(String input, boolean punctuation)
+cc.normalizeCompat(String input)
+cc.normalizeCompatExtended(String input)
+cc.deTofu(String input, DeTofuLevel level)
 
 // Config management
 cc.getConfig()
@@ -371,6 +377,8 @@ OpenccConfig.isValidConfig(String value)
 
 ```text
 OfficeHelper.OFFICE_FORMATS
+OfficeHelper.convert(byte[] input, String format, TextConverter converter, boolean keepFont)
+OfficeHelper.convert(File input, File output, String format, TextConverter converter, boolean keepFont)
 OfficeHelper.convert(byte[] input, String format, OpenCC converter, boolean punctuation, boolean keepFont)
 OfficeHelper.convert(File input, File output, String format, OpenCC converter, boolean punctuation, boolean keepFont)
 OfficeHelper.zip(Path source, Path destination)
@@ -379,6 +387,12 @@ result.success
 result.message
 memoryResult.data
 ```
+
+`TextConverter` is a synchronous `String -> String` callback. `OfficeHelper` streams file-based
+packages to a sibling temporary ZIP, validates the archive, and publishes it only after success.
+The byte-array overload works entirely in memory. Unselected entries are copied through; XLSX
+worksheets pass only inline-string text nodes to the callback. Existing `OpenCC` overloads delegate
+to the same pipeline and borrow the caller's converter without closing it.
 
 ### `NativeLibLoader` API
 
@@ -494,30 +508,141 @@ Zip file will be created in: `openccjni-cli/build/distributions/openccjni-cli-<v
 bin/openccjni-cli.bat convert -c s2t -i input.txt -o output.txt
 ```
 
+### Small Seal Script conversion
+
+The opencc-fmmseg v0.13.0 native engine adds four conversion configs:
+
+| Config   | Input → Output                          |
+|----------|-----------------------------------------|
+| `s2seal` | Simplified Chinese → Small Seal Script  |
+| `t2seal` | Traditional Chinese → Small Seal Script |
+| `seal2s` | Small Seal Script → Simplified Chinese  |
+| `seal2t` | Small Seal Script → Traditional Chinese |
+
+For PowerShell pipelines, use UTF-8 so supplementary seal characters reach the CLI intact:
+
+```powershell
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+echo "你𿒛，𽌠𽴖「𾇓𿭖𿛛碼18」" | .\bin\openccjni-cli.bat convert -c seal2t
+```
+
+```text
+Output (Charset: UTF-8)
+你好，小篆「國際編碼18」
+```
+
+Using `-c seal2s` with the same input produces `你好，小篆「国际编码18」`.
+To convert ordinary Chinese into seal characters:
+
+```powershell
+echo "你好，小篆「國際編碼18」" | .\bin\openccjni-cli.bat convert -c t2seal
+echo "你好，小篆「国际编码18」" | .\bin\openccjni-cli.bat convert -c s2seal
+```
+
+Both examples produce:
+
+```text
+Output (Charset: UTF-8)
+你𿒛，𽌠𽴖「𾇓𿭖𿛛碼18」
+```
+
+For file input/output, save the input files as UTF-8. For example, `seal.txt` contains
+`你𿒛，𽌠𽴖「𾇓𿭖𿛛碼18」`:
+
+```powershell
+.\bin\openccjni-cli.bat convert -c seal2t -i seal.txt -o traditional.txt --in-enc UTF-8 --out-enc UTF-8
+.\bin\openccjni-cli.bat convert -c seal2s -i seal.txt -o simplified.txt --in-enc UTF-8 --out-enc UTF-8
+.\bin\openccjni-cli.bat convert -c t2seal -i traditional.txt -o seal-from-traditional.txt --in-enc UTF-8 --out-enc UTF-8
+.\bin\openccjni-cli.bat convert -c s2seal -i simplified.txt -o seal-from-simplified.txt --in-enc UTF-8 --out-enc UTF-8
+```
+
+`traditional.txt` contains `你好，小篆「國際編碼18」`, and `simplified.txt` contains
+`你好，小篆「国际编码18」`. Both seal output files contain the original sample.
+UTF-8 is already the default for file input/output; the encoding flags above make it explicit.
+
+The Java API accepts the same names and their typed equivalents:
+`OpenccConfig.S2SEAL`, `OpenccConfig.T2SEAL`, `OpenccConfig.SEAL2S`, and `OpenccConfig.SEAL2T`.
+
+### Normalization and DeTofu
+
+The `convert`, `office`, and PDF conversion commands share these options:
+
+| Option                         | Behavior                                                                                                                         |
+|--------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| `-n`, `--norm-compat`          | Normalize CJK Compatibility Ideographs before conversion.                                                                        |
+| `-E`, `--norm-compat-extended` | Normalize extended compatibility/allograph forms and CJK Compatibility Ideographs before conversion. Takes precedence over `-n`. |
+| `--detofu=<level>`             | Apply built-in fallback mappings after conversion. Levels: `all`, `ext-b` through `ext-i`.                                       |
+
+DeTofu thresholds are inclusive: `all` is `ext-b`, and `ext-c` covers ExtC through ExtI.
+The stable aliases `extb`/`b` through `exti`/`i` are also accepted, ignoring case.
+Unmapped characters remain unchanged. PDF extract-only mode reports these options as ignored.
+
+```powershell
+.\bin\openccjni-cli.bat convert -c t2s -i input.txt -o output.txt -E --detofu all
+.\bin\openccjni-cli.bat office -c t2s -i book.docx -E --detofu ext-b --keep-font
+```
+
+Normalization, Chinese conversion, punctuation, and DeTofu all use the same instance-owned
+JNI wrapper. Close the `OpenCC` owner only after its `TextConverter` callback has finished.
+
+This CLI follows the stable OpenccJava v1.5.0 text/Office/PDF structure, option names, processing
+order, and encoding behavior. OpenccJNI retains its native loader, platform resources, launchers,
+and custom-dictionary parser. It does not provide OpenccJava's `dictgen` tool or `--detofu-file`:
+the native wrapper has no corresponding dictionary-generation/custom-DeTofu API. No pure-Java
+conversion engine or fallback mapping tables are bundled. Dictionary and mapping results remain
+those of the bundled native engine.
+
+Commands return failure codes to Picocli; only the entry point exits the process, allowing native
+owners to close on both success and failure. `convert` rejects invalid configs as usage errors;
+Office retains the stable reference's library-default fallback for unknown configs.
+
+Encoding matches the reference: file I/O uses `--in-enc`/`--out-enc`; redirected stdin uses
+`--in-enc`; interactive stdin uses `--con-enc`. Stdout uses `--con-enc` even when redirected (`--out-enc` applies to
+output files). Office package XML is processed as UTF-8; PDF output is UTF-8.
+
+The updated Norm/extended Norm/DeTofu paths have been tested on Windows x86_64 only.
+Updated macOS/Linux JNI bridges must be supplied before those platforms can use these new paths.
+
 ### Plain Text Conversion:
 
 ```bash
-bin/openccjni-cli convert --help                                                           
-Usage: openccjni-cli convert [-hpV] -c=<conversion> [--con-enc=<encoding>]
-                             [-i=<file>] [--in-enc=<encoding>] [-o=<file>]
+bin/openccjni-cli convert --help
+Usage: openccjni-cli convert [-EhnpV] -c=<conversion> [--con-enc=<encoding>]
+                             [--detofu=<level>] [-i=<file>]
+                             [--in-enc=<encoding>] [-o=<file>]
                              [--out-enc=<encoding>] [-D=<slot:mode:path>[,<slot:
                              mode:path>...]]...
 Convert plain text using OpenccJNI
-  -c, --config=<conversion>  Conversion configuration.
-                             Supported values: s2t, t2s, s2tw, tw2s, s2twp,
-                               tw2sp, s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp,
-                               tw2t, tw2tp, t2hk, t2hkp, hk2t, hk2tp, t2jp, jp2t
+  -c, --config=<conversion>  Conversion configuration. Supported: s2t, t2s,
+                               s2tw, tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk,
+                               hk2s, t2tw, t2twp, tw2t, tw2tp, t2hk, t2hkp,
+                               hk2t, hk2tp, t2jp, jp2t, s2seal, t2seal, seal2s,
+                               seal2t
       --con-enc=<encoding>   Console encoding for interactive mode. Ignored if
                                not attached to a terminal. Common <encoding>:
                                UTF-8, GBK, Big5
   -D, --custom-dict=<slot:mode:path>[,<slot:mode:path>...]
-                             Apply a UTF-8 custom dictionary file.
-                             Format: slot:append|override:path.
-                             Repeat the option or separate specifications with
-                               commas.
+                             Apply custom dictionary file. Format: slot:
+                               append|override:path. Can be repeated or
+                               comma-separated. Supported slots: STCharacters,
+                               STPhrases, STPunctuations, TSCharacters,
+                               TSPhrases, TSPunctuations, TWPhrases,
+                               TWPhrasesRev, TWVariants, TWVariantsPhrases,
+                               TWVariantsRev, TWVariantsRevPhrases, HKPhrases,
+                               HKPhrasesRev, HKVariants, HKVariantsPhrases,
+                               HKVariantsRev, HKVariantsRevPhrases,
+                               JPSCharacters, JPSCharactersRev, JPSPhrases
+      --detofu=<level>       Apply tofu-safe fallback after conversion: all,
+                               ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h,
+                               ext-i
+  -E, --norm-compat-extended Normalize extended Unicode compatibility/allograph
+                               forms and CJK Compatibility Ideographs before
+                               conversion.
   -h, --help                 Show this help message and exit.
   -i, --input=<file>         Input file
       --in-enc=<encoding>    Input encoding
+  -n, --norm-compat          Normalize CJK Compatibility Ideographs before
+                               conversion.
   -o, --output=<file>        Output file
       --out-enc=<encoding>   Output encoding
   -p, --punct                Punctuation conversion (default: false)
@@ -549,20 +674,41 @@ bin/openccjni-cli.bat office -c s2t -i book.docx -o book_converted.docx
 ```
 
 ```bash
-bin/openccjni-cli office --help 
-Usage: openccjni-cli office [-hkpV] -c=<conversion> [-f=<format>] -i=<file>
-                            [-o=<file>]
+bin/openccjni-cli office --help
+Usage: openccjni-cli office [-EhknpV] -c=<conversion> [--detofu=<level>]
+                            [-f=<format>] -i=<file> [-o=<file>] [-D=<slot:mode:
+                            path>[,<slot:mode:path>...]]...
 Convert Office documents using OpenccJNI
   -c, --config=<conversion>
-                          Conversion configuration.
-                          Supported values: s2t, t2s, s2tw, tw2s, s2twp, tw2sp,
-                            s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp, tw2t, tw2tp,
-                            t2hk, t2hkp, hk2t, hk2tp, t2jp, jp2t
+                          Conversion configuration. Supported: s2t, t2s, s2tw,
+                            tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk, hk2s, t2tw,
+                            t2twp, tw2t, tw2tp, t2hk, t2hkp, hk2t, hk2tp, t2jp,
+                            jp2t, s2seal, t2seal, seal2s, seal2t
+  -D, --custom-dict=<slot:mode:path>[,<slot:mode:path>...]
+                          Apply custom dictionary file. Format: slot:
+                            append|override:path. Can be repeated or
+                            comma-separated. Supported slots: STCharacters,
+                            STPhrases, STPunctuations, TSCharacters, TSPhrases,
+                            TSPunctuations, TWPhrases, TWPhrasesRev,
+                            TWVariants, TWVariantsPhrases, TWVariantsRev,
+                            TWVariantsRevPhrases, HKPhrases, HKPhrasesRev,
+                            HKVariants, HKVariantsPhrases, HKVariantsRev,
+                            HKVariantsRevPhrases, JPSCharacters,
+                            JPSCharactersRev, JPSPhrases
+      --detofu=<level>    Apply tofu-safe fallback after conversion: all,
+                            ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h,
+                            ext-i
+  -E, --norm-compat-extended
+                          Normalize extended Unicode compatibility/allograph
+                            forms and CJK Compatibility Ideographs before
+                            conversion.
   -f, --format=<format>   Target Office format (e.g., docx, xlsx, pptx, odt,
                             epub)
   -h, --help              Show this help message and exit.
   -i, --input=<file>      Input Office file
   -k, --[no-]keep-font    Preserve font-family info (default: false)
+  -n, --norm-compat       Normalize CJK Compatibility Ideographs before
+                            conversion.
   -o, --output=<file>     Output Office file
   -p, --punct             Punctuation conversion (default: false)
   -V, --version           Print version information and exit.
@@ -586,26 +732,46 @@ bin/openccjni-cli.bat pdf -c s2t -p -i book.pdf -o book_converted.txt --reflow
 ```
 
 ```bash
-bin/openccjni-cli pdf --help 
-Usage: openccjni-cli pdf [-CehHprV] [-c=<conversion>] -i=<file> [-o=<file>]
-Extract PDF text, optionally reflow CJK paragraphs, then convert with
-OpenccJNI                                                                                                                                                        
+bin/openccjni-cli pdf --help
+Usage: openccjni-cli pdf [-CeEhHnprV] [-c=<conversion>] [--detofu=<level>]
+                         -i=<file> [-o=<file>] [-D=<slot:mode:path>[,<slot:mode:
+                         path>...]]...
+Extract PDF text, optionally reflow CJK paragraphs, then convert with OpenccJNI
   -c, --config=<conversion>
-                        Conversion configuration.
-                        Supported values: s2t, t2s, s2tw, tw2s, s2twp, tw2sp,
-                          s2hkp, hk2sp, s2hk, hk2s, t2tw, t2twp, tw2t, tw2tp,
-                          t2hk, t2hkp, hk2t, hk2tp, t2jp, jp2t
-  -C, --compact         Compact / tighten paragraph gaps after reflow (default:
-                          false)
-  -e, --extract         Extract text from PDF document only (default: false)
-  -h, --help            Show this help message and exit.
-  -H, --header          Insert per-page header markers into extracted text
-  -i, --input=<file>    Input PDF file
-  -o, --output=<file>   Output text file (UTF-8). If omitted, '<name>_converted.
-                          txt' is used next to input.
-  -p, --punct           Enable punctuation conversion (default: false)
-  -r, --reflow          Reflow CJK paragraphs after extraction (default: false)
-  -V, --version         Print version information and exit.
+                         Conversion configuration. Supported: s2t, t2s, s2tw,
+                           tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk, hk2s, t2tw,
+                           t2twp, tw2t, tw2tp, t2hk, t2hkp, hk2t, hk2tp, t2jp,
+                           jp2t, s2seal, t2seal, seal2s, seal2t
+  -C, --compact          Compact / tighten paragraph gaps after reflow
+                           (default: false)
+  -D, --custom-dict=<slot:mode:path>[,<slot:mode:path>...]
+                         Apply custom dictionary file. Format: slot:
+                           append|override:path. Can be repeated or
+                           comma-separated. Supported slots: STCharacters,
+                           STPhrases, STPunctuations, TSCharacters, TSPhrases,
+                           TSPunctuations, TWPhrases, TWPhrasesRev, TWVariants,
+                           TWVariantsPhrases, TWVariantsRev,
+                           TWVariantsRevPhrases, HKPhrases, HKPhrasesRev,
+                           HKVariants, HKVariantsPhrases, HKVariantsRev,
+                           HKVariantsRevPhrases, JPSCharacters,
+                           JPSCharactersRev, JPSPhrases
+      --detofu=<level>   Apply tofu-safe fallback after conversion: all, ext-b,
+                           ext-c, ext-d, ext-e, ext-f, ext-g, ext-h, ext-i
+  -e, --extract          Extract text from PDF document only (default: false)
+  -E, --norm-compat-extended
+                         Normalize extended Unicode compatibility/allograph
+                           forms and CJK Compatibility Ideographs before
+                           conversion.
+  -h, --help             Show this help message and exit.
+  -H, --header           Insert per-page header markers into extracted text
+  -i, --input=<file>     Input PDF file
+  -n, --norm-compat      Normalize CJK Compatibility Ideographs before
+                           conversion.
+  -o, --output=<file>    Output text file (UTF-8). If omitted,
+                           '<name>_converted.txt' is used next to input.
+  -p, --punct            Enable punctuation conversion (default: false)
+  -r, --reflow           Reflow CJK paragraphs after extraction (default: false)
+  -V, --version          Print version information and exit.
 ```
 
 ---

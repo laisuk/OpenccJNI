@@ -206,7 +206,7 @@ public class OfficeHelper {
      * @param textConverter caller-supplied text transformation
      * @param keepFont      whether supported font declarations should be protected
      * @return conversion result containing rebuilt package bytes on success
-     * @since 1.5.0
+     * @since 1.4.0
      */
     public static MemoryResult convert(
             byte[] inputBytes,
@@ -339,7 +339,7 @@ public class OfficeHelper {
      * @param textConverter caller-supplied text transformation
      * @param keepFont      whether supported font declarations should be protected
      * @return file conversion result
-     * @since 1.5.0
+     * @since 1.4.0
      */
     public static FileResult convert(
             File inputFile,

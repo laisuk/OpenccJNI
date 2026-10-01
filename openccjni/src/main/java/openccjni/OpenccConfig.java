@@ -120,7 +120,35 @@ public enum OpenccConfig {
     /**
      * Japanese Shinjitai → Traditional.
      */
-    JP2T;
+    JP2T,
+
+    /**
+     * Simplified Chinese → Small Seal Script.
+     *
+     * @since 1.4.0
+     */
+    S2SEAL,
+
+    /**
+     * Traditional Chinese → Small Seal Script.
+     *
+     * @since 1.4.0
+     */
+    T2SEAL,
+
+    /**
+     * Small Seal Script → Simplified Chinese.
+     *
+     * @since 1.4.0
+     */
+    SEAL2S,
+
+    /**
+     * Small Seal Script → Traditional Chinese.
+     *
+     * @since 1.4.0
+     */
+    SEAL2T;
 
     /**
      * Returns the default OpenCC configuration.

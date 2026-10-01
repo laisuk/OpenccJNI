@@ -346,6 +346,130 @@ JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1convert_1cfg
     return result;
 }
 
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1normalize_1compat
+(JNIEnv *env, jobject /*obj*/, jlong instance, jbyteArray input) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) {
+            env->ThrowNew(exClass, "OpenCC instance is null");
+        }
+        return nullptr;
+    }
+
+    auto inputStrOpt = jbyteArrayToString(env, input);
+    if (!inputStrOpt) {
+        return nullptr;
+    }
+
+    char *output = opencc_normalize_compat(
+        reinterpret_cast<void *>(instance),
+        inputStrOpt->c_str()
+    );
+
+    jbyteArray result = nullptr;
+
+    if (output != nullptr) {
+        const jsize outLen = static_cast<jsize>(std::strlen(output));
+        result = env->NewByteArray(outLen);
+
+        if (result != nullptr) {
+            env->SetByteArrayRegion(
+                result,
+                0,
+                outLen,
+                reinterpret_cast<const jbyte *>(output)
+            );
+        }
+
+        opencc_string_free(output);
+    }
+
+    return result;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1normalize_1compat_1extended
+(JNIEnv *env, jobject /*obj*/, jlong instance, jbyteArray input) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) {
+            env->ThrowNew(exClass, "OpenCC instance is null");
+        }
+        return nullptr;
+    }
+
+    auto inputStrOpt = jbyteArrayToString(env, input);
+    if (!inputStrOpt) {
+        return nullptr;
+    }
+
+    char *output = opencc_normalize_compat_extended(
+        reinterpret_cast<void *>(instance),
+        inputStrOpt->c_str()
+    );
+
+    jbyteArray result = nullptr;
+
+    if (output != nullptr) {
+        const jsize outLen = static_cast<jsize>(std::strlen(output));
+        result = env->NewByteArray(outLen);
+
+        if (result != nullptr) {
+            env->SetByteArrayRegion(
+                result,
+                0,
+                outLen,
+                reinterpret_cast<const jbyte *>(output)
+            );
+        }
+
+        opencc_string_free(output);
+    }
+
+    return result;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_openccjni_OpenccWrapper_opencc_1detofu
+(JNIEnv *env, jobject /*obj*/, jlong instance, jbyteArray input, jint level) {
+    if (instance == 0) {
+        jclass exClass = env->FindClass("java/lang/IllegalStateException");
+        if (exClass != nullptr) {
+            env->ThrowNew(exClass, "OpenCC instance is null");
+        }
+        return nullptr;
+    }
+
+    auto inputStrOpt = jbyteArrayToString(env, input);
+    if (!inputStrOpt) {
+        return nullptr;
+    }
+
+    char *output = opencc_detofu(
+        reinterpret_cast<void *>(instance),
+        inputStrOpt->c_str(),
+        static_cast<opencc_detofu_level_t>(level)
+    );
+
+    jbyteArray result = nullptr;
+
+    if (output != nullptr) {
+        const jsize outLen = static_cast<jsize>(std::strlen(output));
+        result = env->NewByteArray(outLen);
+
+        if (result != nullptr) {
+            env->SetByteArrayRegion(
+                result,
+                0,
+                outLen,
+                reinterpret_cast<const jbyte *>(output)
+            );
+        }
+
+        opencc_string_free(output);
+    }
+
+    return result;
+}
+
 JNIEXPORT void JNICALL Java_openccjni_OpenccWrapper_opencc_1delete
 (JNIEnv *env, jobject /*obj*/, jlong instance) {
     if (instance == 0) {
