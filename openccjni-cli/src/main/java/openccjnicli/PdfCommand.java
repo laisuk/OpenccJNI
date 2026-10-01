@@ -2,16 +2,20 @@ package openccjnicli;
 
 import openccjni.OpenCC;
 import openccjni.OpenccConfig;
+import openccjni.TextConverter;
 import pdfboxhelper.PdfBoxHelper;
 import pdfboxhelper.PdfReflowHelper;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Spec;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -40,7 +44,9 @@ import java.util.logging.Logger;
         description = "\033[1;34mExtract PDF text, optionally reflow CJK paragraphs, then convert with OpenccJNI\033[0m",
         mixinStandardHelpOptions = true
 )
-public class PdfCommand implements Runnable {
+public class PdfCommand implements java.util.concurrent.Callable<Integer> {
+    @Spec
+    private CommandSpec spec;
 
     @Option(
             names = {"-i", "--input"},
@@ -60,11 +66,8 @@ public class PdfCommand implements Runnable {
     @Option(
             names = {"-c", "--config"},
             paramLabel = "<conversion>",
-            description = {
-                    "Conversion configuration.",
-                    "Supported values: ${COMPLETION-CANDIDATES}"
-            },
-            completionCandidates = CliUtils.ConfigCandidates.class
+            completionCandidates = CliUtils.ConfigCandidates.class,
+            description = "Conversion configuration. Supported: ${COMPLETION-CANDIDATES}"
     )
     private String config;
 
@@ -98,37 +101,60 @@ public class PdfCommand implements Runnable {
     )
     private boolean extract;
 
+    @Option(names = {"-n", "--norm-compat"}, description = "Normalize CJK Compatibility Ideographs before conversion.")
+    private boolean normCompat;
+
+    @Option(
+            names = {"-E", "--norm-compat-extended"},
+            description = "Normalize extended Unicode compatibility/allograph forms and CJK Compatibility Ideographs before conversion."
+    )
+    private boolean normCompatExtended;
+
+    @Option(
+            names = "--detofu",
+            paramLabel = "<level>",
+            description = "Apply tofu-safe fallback after conversion: all, ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h, ext-i"
+    )
+    private String detofu;
+
     @Option(
             names = {"-D", "--custom-dict"},
             paramLabel = "<slot:mode:path>",
             split = ",",
-            description = {
-                    "Apply a UTF-8 custom dictionary file.",
-                    "Format: slot:append|override:path.",
-                    "Repeat the option or separate specifications with commas."
-            }
+            completionCandidates = CliUtils.SlotCandidates.class,
+            description = "Apply custom dictionary file. Format: slot:append|override:path. Can be repeated or comma-separated. Supported slots: ${COMPLETION-CANDIDATES}"
     )
     private List<String> customDictSpecs;
 
     private static final Logger LOGGER = Logger.getLogger(PdfCommand.class.getName());
 
     @Override
-    public void run() {
+    public Integer call() {
         if (!extract) {
-            if (config == null ||
-                    !OpenccConfig.isValidConfig(config)) {
-                System.err.println("❌ Missing or invalid config: " + config);
-                return;
+            if (config == null || !OpenccConfig.isValidConfig(config)) {
+                throw new CommandLine.ParameterException(
+                        spec.commandLine(),
+                        "Missing or invalid config: " + config + System.lineSeparator()
+                                + "Supported configs: " + String.join(", ", OpenCC.getSupportedConfigs())
+                );
+            }
+
+        }
+
+        if (extract) {
+            List<String> ignoredOptions = createIgnoredOptions();
+
+            if (!ignoredOptions.isEmpty()) {
+                System.err.println(
+                        "ℹ️  Note: " + String.join(", ", ignoredOptions)
+                                + " have no effect in extract-only mode."
+                );
             }
         }
 
-        if (extract && punct) {
-            System.err.println("ℹ️  Note: --punct has no effect in extract-only mode.");
-        }
+        validateInputPdf();
 
         try {
-            validateInputPdf();
-
             if (output == null) {
                 String inputName = removeExtension(input.getName());
                 String defaultName;
@@ -142,7 +168,6 @@ public class PdfCommand implements Runnable {
                 System.err.println("ℹ️ Output file not specified. Using: " + outPath);
             }
 
-            // --- NEW: progress bar setup ---
             ConsoleProgressBar progressBar = new ConsoleProgressBar(20);
             System.err.println("📄 Extracting PDF text...");
             String raw = PdfBoxHelper.extractText(
@@ -155,7 +180,6 @@ public class PdfCommand implements Runnable {
                 raw = "";
             }
 
-            // Optional reflow
             String processed = raw;
             if (reflow) {
                 System.err.println("🧹 Reflowing CJK paragraphs...");
@@ -167,12 +191,25 @@ public class PdfCommand implements Runnable {
                 Files.write(output.toPath(), processed.getBytes(StandardCharsets.UTF_8));
             } else {
                 try (OpenCC opencc = CliUtils.createOpenCC(config, customDictSpecs)) {
+
+                    TextConverter textConverter =
+                            CliUtils.createTextConverter(
+                                    opencc,
+                                    punct,
+                                    normCompat,
+                                    normCompatExtended,
+                                    detofu
+                            );
+
                     System.err.println("🔁 Converting with OpenccJNI...");
-                    String converted = Objects.requireNonNull(
-                            opencc.convert(processed, punct),
-                            "OpenCC conversion returned null"
+
+                    String converted =
+                            textConverter.convert(processed);
+
+                    Files.write(
+                            output.toPath(),
+                            converted.getBytes(StandardCharsets.UTF_8)
                     );
-                    Files.write(output.toPath(), converted.getBytes(StandardCharsets.UTF_8));
                 }
             }
 
@@ -180,36 +217,59 @@ public class PdfCommand implements Runnable {
             System.err.println("📄 Input : " + input.toPath().toAbsolutePath().normalize());
             System.err.println("📁 Output: " + output.toPath().toAbsolutePath().normalize());
             System.err.println("⚙️  Config: " + (extract ? "Extract only" : config +
-                    (punct ? " (punct on)" : " (punct off)")) +
+                    (punct ? " (punct: on)" : " (punct: off)")) +
                     (addHeader ? ", header" : "") +
                     (reflow ? ", reflow" : "") +
                     (compact ? ", compact" : ""));
+            return 0;
         } catch (IllegalArgumentException e) {
             System.err.println("❌ " + e.getMessage());
-            System.exit(1);
+            return 1;
         } catch (Exception ex) {
             LOGGER.log(Level.SEVERE, "Error during PDF conversion", ex);
             System.err.println("❌ Exception occurred: " + ex.getMessage());
-            System.exit(1);
+            return 1;
         }
     }
 
-    // ---- helpers ---------------------------------------------------------
+    private List<String> createIgnoredOptions() {
+        List<String> ignoredOptions = new ArrayList<>();
+
+        if (punct) {
+            ignoredOptions.add("--punct");
+        }
+        if (normCompat) {
+            ignoredOptions.add("--norm-compat");
+        }
+        if (normCompatExtended) {
+            ignoredOptions.add("--norm-compat-extended");
+        }
+        if (detofu != null && !detofu.trim().isEmpty()) {
+            ignoredOptions.add("--detofu");
+        }
+        return ignoredOptions;
+    }
 
     private void validateInputPdf() {
         if (!input.exists()) {
-            System.err.println("❌ Input file does not exist: " + input.getAbsolutePath());
-            System.exit(1);
+            throw new CommandLine.ParameterException(
+                    spec.commandLine(),
+                    "Input file does not exist: " + input.getAbsolutePath()
+            );
         }
         if (!input.isFile()) {
-            System.err.println("❌ Input path is not a file: " + input.getAbsolutePath());
-            System.exit(1);
+            throw new CommandLine.ParameterException(
+                    spec.commandLine(),
+                    "Input path is not a file: " + input.getAbsolutePath()
+            );
         }
 
-        String ext = getExtension(input.getName()).toLowerCase();
+        String ext = getExtension(input.getName()).toLowerCase(java.util.Locale.ROOT);
         if (!".pdf".equals(ext)) {
-            System.err.println("❌ Input file is not a PDF: " + input.getName());
-            System.exit(1);
+            throw new CommandLine.ParameterException(
+                    spec.commandLine(),
+                    "Input file is not a PDF: " + input.getName()
+            );
         }
     }
 

@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -45,18 +44,18 @@ class OfficeHelperTest {
     }
 
     @Test
-    void convertRejectsNullOutputFile() {
-        OfficeHelper.FileResult result = OfficeHelper.convert(
-                new File("unused.docx"),
-                null,
-                "docx",
-                null,
-                false,
-                false
-        );
-
-        assertFalse(result.success);
-        assertTrue(result.message.contains("Output file must not be null"));
+    void convertRejectsNullOutputFile() throws IOException {
+        java.nio.file.Path input = java.nio.file.Files.createTempFile("openccjni-office-", ".xlsx");
+        try (OpenCC owner = new OpenCC("s2t")) {
+            java.nio.file.Files.write(input, createInlineStringWorkbook());
+            OfficeHelper.FileResult result = OfficeHelper.convert(
+                    input.toFile(), null, "xlsx", owner, false, false
+            );
+            assertFalse(result.success);
+            assertTrue(result.message.contains("Output file must not be null"));
+        } finally {
+            java.nio.file.Files.deleteIfExists(input);
+        }
     }
 
     @Test

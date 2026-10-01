@@ -4,6 +4,8 @@ import openccjni.CustomDictMode;
 import openccjni.CustomDictSpec;
 import openccjni.DictSlot;
 import openccjni.OpenCC;
+import openccjni.TextConverter;
+import openccjni.DeTofuLevel;
 import openccjni.OpenccConfig;
 
 import java.io.File;
@@ -42,6 +44,72 @@ public final class CliUtils {
         public Iterator<String> iterator() {
             return OpenCC.getSupportedConfigs().iterator();
         }
+    }
+
+    /** Supplies supported native dictionary slots for completion and help. */
+    static final class SlotCandidates implements Iterable<String> {
+        @Override
+        public Iterator<String> iterator() {
+            return Arrays.stream(DictSlot.values())
+                    .filter(CliUtils::isSupportedCliSlot)
+                    .map(Enum::name).iterator();
+        }
+    }
+
+    /**
+     * Composes the stable CLI pipeline using the caller-owned JNI converter.
+     * Extended normalization takes precedence, conversion follows, and DeTofu
+     * runs last. The callback must be used before its OpenCC owner is closed.
+     */
+    static TextConverter createTextConverter(
+            OpenCC opencc, boolean punctuation, boolean normCompat,
+            boolean normCompatExtended, String detofu
+    ) {
+        if (opencc == null) {
+            throw new IllegalArgumentException("OpenCC converter must not be null");
+        }
+        final DeTofuLevel level = parseDeTofuLevel(detofu);
+        return text -> {
+            String result = text;
+            if (normCompatExtended) {
+                result = requireResult(opencc.normalizeCompatExtended(result));
+            } else if (normCompat) {
+                result = requireResult(opencc.normalizeCompat(result));
+            }
+            result = requireResult(opencc.convert(result, punctuation));
+            if (level != null) {
+                result = requireResult(opencc.deTofu(result, level));
+            }
+            return result;
+        };
+    }
+
+    /** Adapts the stable level names to the native inclusive threshold enum. */
+    static DeTofuLevel parseDeTofuLevel(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        String level = value.trim().toLowerCase(Locale.ROOT);
+        if ("all".equals(level)) {
+            return DeTofuLevel.EXT_B;
+        }
+        for (DeTofuLevel candidate : DeTofuLevel.values()) {
+            if ((candidate.name().toLowerCase(Locale.ROOT).replace('_', '-').equals(level)
+                    || candidate.name().toLowerCase(Locale.ROOT).replace("_", "").equals(level)
+                    || candidate.name().substring(4).equalsIgnoreCase(level))) {
+                return candidate;
+            }
+        }
+        throw new IllegalArgumentException(
+                "Supported DeTofu levels: all, ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h, ext-i."
+        );
+    }
+
+    private static String requireResult(String result) {
+        if (result == null) {
+            throw new IllegalStateException("OpenCC conversion failed: " + OpenCC.getLastError());
+        }
+        return result;
     }
 
     // ------------------------------------------------------------------------
