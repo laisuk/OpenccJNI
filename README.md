@@ -605,7 +605,7 @@ Updated macOS/Linux JNI bridges must be supplied before those platforms can use 
 
 ### Plain Text Conversion:
 
-```bash
+```
 bin/openccjni-cli convert --help
 Usage: openccjni-cli convert [-EhnpV] -c=<conversion> [--con-enc=<encoding>]
                              [--detofu=<level>] [-i=<file>]
@@ -673,45 +673,47 @@ Supported Office document formats: `.docx`, `.xlsx`, `.pptx`, `.odt`, `.ods`, `.
 bin/openccjni-cli.bat office -c s2t -i book.docx -o book_converted.docx
 ```
 
-```bash
+```
 bin/openccjni-cli office --help
-Usage: openccjni-cli office [-EhknpV] -c=<conversion> [--detofu=<level>]
+Usage: openccjni-cli office [-EFhknpV] -c=<conversion> [--detofu=<level>]
                             [-f=<format>] -i=<file> [-o=<file>] [-D=<slot:mode:
                             path>[,<slot:mode:path>...]]...
 Convert Office documents using OpenccJNI
   -c, --config=<conversion>
-                          Conversion configuration. Supported: s2t, t2s, s2tw,
-                            tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk, hk2s, t2tw,
-                            t2twp, tw2t, tw2tp, t2hk, t2hkp, hk2t, hk2tp, t2jp,
-                            jp2t, s2seal, t2seal, seal2s, seal2t
+                           Conversion configuration. Supported: s2t, t2s, s2tw,
+                             tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk, hk2s,
+                             t2tw, t2twp, tw2t, tw2tp, t2hk, t2hkp, hk2t,
+                             hk2tp, t2jp, jp2t, s2seal, t2seal, seal2s, seal2t
   -D, --custom-dict=<slot:mode:path>[,<slot:mode:path>...]
-                          Apply custom dictionary file. Format: slot:
-                            append|override:path. Can be repeated or
-                            comma-separated. Supported slots: STCharacters,
-                            STPhrases, STPunctuations, TSCharacters, TSPhrases,
-                            TSPunctuations, TWPhrases, TWPhrasesRev,
-                            TWVariants, TWVariantsPhrases, TWVariantsRev,
-                            TWVariantsRevPhrases, HKPhrases, HKPhrasesRev,
-                            HKVariants, HKVariantsPhrases, HKVariantsRev,
-                            HKVariantsRevPhrases, JPSCharacters,
-                            JPSCharactersRev, JPSPhrases
-      --detofu=<level>    Apply tofu-safe fallback after conversion: all,
-                            ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h,
-                            ext-i
+                           Apply custom dictionary file. Format: slot:
+                             append|override:path. Can be repeated or
+                             comma-separated. Supported slots: STCharacters,
+                             STPhrases, STPunctuations, TSCharacters,
+                             TSPhrases, TSPunctuations, TWPhrases,
+                             TWPhrasesRev, TWVariants, TWVariantsPhrases,
+                             TWVariantsRev, TWVariantsRevPhrases, HKPhrases,
+                             HKPhrasesRev, HKVariants, HKVariantsPhrases,
+                             HKVariantsRev, HKVariantsRevPhrases,
+                             JPSCharacters, JPSCharactersRev, JPSPhrases
+      --detofu=<level>     Apply tofu-safe fallback after conversion: all,
+                             ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h,
+                             ext-i
   -E, --norm-compat-extended
-                          Normalize extended Unicode compatibility/allograph
-                            forms and CJK Compatibility Ideographs before
-                            conversion.
-  -f, --format=<format>   Target Office format (e.g., docx, xlsx, pptx, odt,
-                            epub)
-  -h, --help              Show this help message and exit.
-  -i, --input=<file>      Input Office file
-  -k, --[no-]keep-font    Preserve font-family info (default: false)
-  -n, --norm-compat       Normalize CJK Compatibility Ideographs before
-                            conversion.
-  -o, --output=<file>     Output Office file
-  -p, --punct             Punctuation conversion (default: false)
-  -V, --version           Print version information and exit.
+                           Normalize extended Unicode compatibility/allograph
+                             forms and CJK Compatibility Ideographs before
+                             conversion.
+  -f, --format=<format>    Target Office format (e.g., docx, xlsx, pptx, odt,
+                             epub)
+  -F, --convert-filename   Convert the output filename using the selected
+                             OpenCC configuration.
+  -h, --help               Show this help message and exit.
+  -i, --input=<file>       Input Office file
+  -k, --[no-]keep-font     Preserve font-family info (default: false)
+  -n, --norm-compat        Normalize CJK Compatibility Ideographs before
+                             conversion.
+  -o, --output=<file>      Output Office file
+  -p, --punct              Punctuation conversion (default: false)
+  -V, --version            Print version information and exit.
 ```
 
 #### Optional flags:
@@ -731,7 +733,7 @@ Supported **Text-Embedded PDF** document only.
 bin/openccjni-cli.bat pdf -c s2t -p -i book.pdf -o book_converted.txt --reflow
 ```
 
-```bash
+```
 bin/openccjni-cli pdf --help
 Usage: openccjni-cli pdf [-CeEhHnprV] [-c=<conversion>] [--detofu=<level>]
                          -i=<file> [-o=<file>] [-D=<slot:mode:path>[,<slot:mode:

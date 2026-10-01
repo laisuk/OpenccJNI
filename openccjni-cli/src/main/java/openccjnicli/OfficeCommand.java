@@ -41,6 +41,12 @@ public class OfficeCommand implements java.util.concurrent.Callable<Integer> {
     private boolean keepFont;
 
     @Option(
+            names = {"-F", "--convert-filename"},
+            description = "Convert the output filename using the selected OpenCC configuration."
+    )
+    private boolean convertFilename;
+
+    @Option(
             names = {"-n", "--norm-compat"},
             description = "Normalize CJK Compatibility Ideographs before conversion."
     )
@@ -95,16 +101,6 @@ public class OfficeCommand implements java.util.concurrent.Callable<Integer> {
                 officeFormat = ext.substring(1).toLowerCase(java.util.Locale.ROOT);
             }
 
-            if (output == null) {
-                String defaultName = inputName + "_converted." + officeFormat;
-                output = new File(input.getParentFile(), defaultName);
-                System.err.println("ℹ️ Output file not specified. Using: " + output);
-            }
-
-            if (getExtension(output.getName()).isEmpty()) {
-                output = new File(output.getAbsolutePath() + "." + officeFormat);
-                System.err.println("ℹ️ Auto-extension applied: " + output.getAbsolutePath());
-            }
             try (OpenCC opencc = CliUtils.createOpenCC(config, customDictSpecs)) {
 
                 TextConverter textConverter = CliUtils.createTextConverter(
@@ -114,6 +110,23 @@ public class OfficeCommand implements java.util.concurrent.Callable<Integer> {
                         normCompatExtended,
                         detofu
                 );
+
+                if (output == null) {
+                    String outputName = inputName;
+
+                    if (convertFilename) {
+                        outputName = textConverter.convert(outputName);
+                    }
+
+                    String defaultName = outputName + "_converted." + officeFormat;
+                    output = new File(input.getParentFile(), defaultName);
+                    System.err.println("ℹ️ Output file not specified. Using: " + output);
+                }
+
+                if (getExtension(output.getName()).isEmpty()) {
+                    output = new File(output.getAbsolutePath() + "." + officeFormat);
+                    System.err.println("ℹ️ Auto-extension applied: " + output.getAbsolutePath());
+                }
 
                 OfficeHelper.FileResult result = OfficeHelper.convert(
                         input,
