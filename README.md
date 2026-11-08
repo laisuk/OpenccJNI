@@ -39,7 +39,7 @@ conversion. It ships with a Java API and loads a native library at runtime.
 
 ```kotlin
 dependencies {
-    implementation("io.github.laisuk:openccjni:1.3.0")
+    implementation("io.github.laisuk:openccjni:1.4.0")
 }
 ```
 
@@ -50,7 +50,7 @@ dependencies {
 <dependency>
     <groupId>io.github.laisuk</groupId>
     <artifactId>openccjni</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
 </dependency>
 ```
 
@@ -62,6 +62,7 @@ dependencies {
 
 ```java
 import openccjni.OpenCC;
+import openccjni.OpenccConfig;
 
 public class Demo {
     public static void main(String[] args) {
@@ -78,6 +79,7 @@ If you want to reuse one conversion profile across calls:
 
 ```java
 import openccjni.OpenCC;
+import openccjni.OpenccConfig;
 
 public class Demo {
     public static void main(String[] args) {
@@ -90,13 +92,18 @@ public class Demo {
 ```
 
 Both styles use the public `OpenCC` API. Static helpers retain a thread-local native wrapper. Each configured `OpenCC`
-instance owns one native wrapper and should be closed with try-with-resources. Conversion calls may share an instance
-concurrently while its configuration remains unchanged; do not call `setConfig(...)` or `close()` during conversion.
+instance owns one native wrapper and should be closed with try-with-resources. Confine an instance to one thread,
+or synchronize access externally, including configuration changes and `close()`.
 
 ### C) Custom dictionary files
 
 Custom dictionaries are UTF-8 text files containing `source<TAB>target` mappings. The following Java 8-compatible
-example appends one Hong Kong reverse-phrase mapping:
+example appends one Hong Kong reverse-phrase mapping. Create `my_hk_dict.txt`
+with this UTF-8 mapping (the separator must be a tab):
+
+```text
+細路哥	小男孩
+```
 
 ```java
 import openccjni.CustomDictMode;
@@ -142,6 +149,7 @@ Example:
 
 ```java
 import openccjni.OpenCC;
+import openccjni.OpenccConfig;
 
 public class ConversionDemo {
     public static void main(String[] args) {
@@ -168,31 +176,6 @@ public class ConversionDemo {
   `DYLD_LIBRARY_PATH`.
 
 > Published releases are available from Maven Central using the coordinates shown above.
-
----
-
-## 🚀 Quick Start (auto native load)
-
-```java
-import openccjni.OpenCC;
-
-public class Demo {
-    public static void main(String[] args) {
-        // OpenCC autoloads the native library internally.
-        // No need to call NativeLibLoader explicitly.
-
-        // Create an instance bound to a specific config:
-        try (OpenCC cc = OpenCC.fromConfig("s2t")) {
-            String input = "汉字转换测试";
-            String output = cc.convert(input);
-            System.out.println(output); // 漢字轉換測試
-        }
-    }
-}
-```
-
-> The static `OpenCC.convert(...)` methods use thread-local `OpenccWrapper` instances, so concurrent static
-> conversions do not require extra locking in user code.
 
 ---
 
@@ -224,7 +207,12 @@ Build and test the Java projects with the Gradle wrapper:
 
 ```bash
 ./gradlew build
+./gradlew :openccjni:javadoc :openccjni:javadocJar
 ```
+
+On Windows, use `gradlew.bat`. Generated API documentation is in
+`openccjni/build/docs/javadoc/index.html`; the documentation JAR is written to
+`openccjni/build/libs/`. The examples below use the public library API and Java 8 syntax.
 
 Release artifacts already include native libraries for the supported platforms. Most users should not build the native
 components manually.
@@ -240,8 +228,8 @@ project does not currently provide a supported, reproducible native-build proced
 
 - Use the static `OpenCC.convert(...)` methods for thread-safe concurrent conversion; the high-level API keeps
   per-thread JNI handles under the hood for these calls.
-- A configured `OpenCC` owns one native wrapper. Its conversion methods may be called concurrently while the config is
-  unchanged; do not call `setConfig(...)` or `close()` concurrently with conversion.
+- A configured `OpenCC` owns one native wrapper. Confine it to one thread or synchronize all access externally,
+  including `setConfig(...)` and `close()`.
 - The native library relies on immutable data and minimal synchronization, so parallel conversions are efficient.
 - For long-running servers, prefer reusing the instance (pattern B) to amortize initialization.
 
@@ -308,7 +296,7 @@ OpenCC.isSupportedConfig(String value)
 OpenCC.getSupportedConfigs()
 
 // Chinese text detection
-// Returns: 1 = Traditional, 2 = Simplified, 0 = mixed / undetermined
+// Returns: 1 = Traditional, 2 = Simplified, 0 = mixed / undetermined, -1 = native rejection
 OpenCC.zhoCheck(String text)
 
 // Parallel mode for the current thread's native wrapper
@@ -349,6 +337,61 @@ cc.close()
 
 `OpenCC` implements `AutoCloseable`; use try-with-resources for constructed instances.
 
+### Configuration, errors, and resource ownership
+
+Configuration names ignore case and surrounding whitespace. Prefer `OpenccConfig`
+constants when the profile is known at compile time. Validate user input with
+`OpenccConfig.tryParse(...)` before constructing a converter if fallback is undesirable.
+
+| Operation                                              | Null or invalid argument behavior                                                                                                                  |
+|--------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `new OpenCC(String)` / `setConfig(String)`             | Unknown, blank, or null config selects `s2t` and records an error.                                                                                 |
+| `new OpenCC(OpenccConfig)` / typed setter              | Null config selects `S2T` and records an error.                                                                                                    |
+| Static `convert(...)`                                  | Null input returns null; empty input returns empty before config validation; invalid config leaves non-empty input unchanged and records an error. |
+| Instance `convert(...)`                                | Null input returns null; empty input returns empty; native failures throw runtime exceptions.                                                      |
+| `normalizeCompat`, `normalizeCompatExtended`, `deTofu` | Null text throws `NullPointerException`; `deTofu` also requires a non-null level.                                                                  |
+| `OfficeHelper.convert(...)`                            | Argument, archive, and callback failures are returned as `success == false` with a message.                                                        |
+
+`OpenCC.getLastError()` is static and belongs to the calling thread, even when
+called after an instance operation. Read it immediately; operations on other
+converters in the same thread can change it. Java validation errors take precedence
+over native errors. `OpenCC.setLastError(null)` clears both error states.
+Native loading failures can throw `UnsatisfiedLinkError`.
+
+Close every constructed `OpenCC` with try-with-resources. Closing is idempotent and
+does not close other converters or the static thread-local wrapper. Do not use an
+instance after closing it, even though some metadata and null/empty fast paths
+can still return without native work. Static `setParallel(...)` affects only the
+calling thread's static wrapper, not a constructed `OpenCC` instance.
+
+### Compose normalization, conversion, and DeTofu
+
+The public API applies each operation separately. To follow the CLI processing
+order, normalize first, convert second, and apply display fallbacks last:
+
+```java
+import openccjni.DeTofuLevel;
+import openccjni.OpenCC;
+import openccjni.OpenccConfig;
+
+public class PipelineDemo {
+    public static void main(String[] args) {
+        try (OpenCC converter = new OpenCC(OpenccConfig.T2S)) {
+            String normalized = converter.normalizeCompatExtended("天龍八部書裡的聼眾");
+            String converted = converter.convert(normalized, false);
+            String displayText = converter.deTofu(converted, DeTofuLevel.EXT_B);
+            System.out.println(displayText);
+        }
+    }
+}
+```
+
+Normalization and DeTofu do not use the selected Chinese conversion profile.
+Extended normalization includes CJK compatibility normalization. DeTofu replaces
+only mapped characters at or above its inclusive extension threshold; it does not
+check installed fonts or guarantee that every character can be displayed.
+Custom DeTofu files are currently a CLI feature, not a public library overload.
+
 ### Custom dictionary API
 
 ```text
@@ -361,6 +404,21 @@ CustomDictMode.Override
 
 `DictSlot` identifies the exact built-in dictionary to patch, such as `STPhrases`, `HKPhrasesRev`, or
 `STPunctuations`. Files use UTF-8 `source<TAB>target` lines; blank lines and `#` or `//` comments are ignored.
+
+The four Small Seal Script slots require `opencc-fmmseg-capi` 0.13.0 or later
+and use the same names as OpenccJava:
+
+| Slot                | Mapping direction                                 | Profiles using the slot |
+|---------------------|---------------------------------------------------|-------------------------|
+| `SealCharacters`    | Small Seal Script → regular-script transcriptions | `seal2s`, `seal2t`      |
+| `SealCharactersRev` | Regular-script transcriptions → Small Seal Script | `s2seal`, `t2seal`      |
+| `SealVariants`      | Modern characters → Seal regular-script variants  | `s2seal`, `t2seal`      |
+| `SealVariantsRev`   | Seal regular-script variants → modern characters  | `seal2s`, `seal2t`      |
+
+Use these with `CustomDictSpec.fromFile(...)` / `fromFiles(...)` or the CLI's
+`--custom-dict`, for example `--custom-dict SealCharactersRev:append:seal-custom.txt`.
+The Java binding maps these slots explicitly to native IDs 22–25; enum ordinals
+are not native slot IDs. Existing slots retain their native mappings.
 
 ### `OpenccConfig` API
 
@@ -394,6 +452,47 @@ The byte-array overload works entirely in memory. Unselected entries are copied 
 worksheets pass only inline-string text nodes to the callback. Existing `OpenCC` overloads delegate
 to the same pipeline and borrow the caller's converter without closing it.
 
+### Convert an Office file with a public API pipeline
+
+```java
+import java.io.File;
+
+import openccjni.DeTofuLevel;
+import openccjni.OfficeHelper;
+import openccjni.OpenCC;
+import openccjni.OpenccConfig;
+import openccjni.TextConverter;
+
+public class OfficeDemo {
+    public static void main(String[] args) {
+        try (OpenCC converter = new OpenCC(OpenccConfig.T2S)) {
+            TextConverter pipeline = text -> converter.deTofu(
+                    converter.convert(converter.normalizeCompatExtended(text), false),
+                    DeTofuLevel.EXT_B);
+            OfficeHelper.FileResult result = OfficeHelper.convert(
+                    new File("input.docx"), new File("output.docx"),
+                    "docx", pipeline, true);
+            if (!result.success) {
+                throw new IllegalStateException(result.message);
+            }
+            System.out.println(result.message);
+        }
+    }
+}
+```
+
+For conversion alone, use `OfficeHelper.convert(input, output, "docx", converter, false, true)`.
+The helper borrows the converter and never closes it. Callbacks run synchronously
+and must finish before their owner is closed. They receive raw XML/XHTML, including
+markup and entity references; preserve markup and escaping. ZIP validation checks
+archive integrity, not XML validity or whether the document renders correctly.
+
+For in-memory conversion, pass the package bytes to the corresponding overload,
+check `MemoryResult.success`, and then use `MemoryResult.data`. Failed results
+have null data; the constructor copies supplied bytes, but the public array is mutable.
+`keepFont` protects supported font declarations in selected parts; it does not
+embed fonts or preserve every font reference in a package.
+
 ### `NativeLibLoader` API
 
 ```text
@@ -420,6 +519,9 @@ new OpenccWrapper.OpenccCustomDictSpec(int slot, int mode, List<OpenccCustomPair
 // Low-level conversion
 wrapper.convert(String input, String config, boolean punctuation)
 wrapper.convertCfg(String input, int configId, boolean punctuation)
+wrapper.normalizeCompat(String input)
+wrapper.normalizeCompatExtended(String input)
+wrapper.deTofu(String input, int level)  // 0 = ExtB through 7 = ExtI
 
 // Config id helpers
 wrapper.configNameToId(String canonicalName)
@@ -572,6 +674,7 @@ The `convert`, `office`, and PDF conversion commands share these options:
 | `-n`, `--norm-compat`          | Normalize CJK Compatibility Ideographs before conversion.                                                                        |
 | `-E`, `--norm-compat-extended` | Normalize extended compatibility/allograph forms and CJK Compatibility Ideographs before conversion. Takes precedence over `-n`. |
 | `--detofu=<level>`             | Apply built-in fallback mappings after conversion. Levels: `all`, `ext-b` through `ext-i`.                                       |
+| `--detofu-file=<file>`         | Load custom UTF-8 fallback mappings overriding built-ins; requires `--detofu`.                                                   |
 
 DeTofu thresholds are inclusive: `all` is `ext-b`, and `ext-c` covers ExtC through ExtI.
 The stable aliases `extb`/`b` through `exti`/`i` are also accepted, ignoring case.
@@ -587,10 +690,10 @@ JNI wrapper. Close the `OpenCC` owner only after its `TextConverter` callback ha
 
 This CLI follows the stable OpenccJava v1.5.0 text/Office/PDF structure, option names, processing
 order, and encoding behavior. OpenccJNI retains its native loader, platform resources, launchers,
-and custom-dictionary parser. It does not provide OpenccJava's `dictgen` tool or `--detofu-file`:
-the native wrapper has no corresponding dictionary-generation/custom-DeTofu API. No pure-Java
-conversion engine or fallback mapping tables are bundled. Dictionary and mapping results remain
-those of the bundled native engine.
+and custom-dictionary parser. Custom DeTofu files are composed in the CLI over native built-in
+fallbacks; they are not a public `OpenCC` method. OpenccJava's `dictgen` tool requires a dictionary
+serialization API that the JNI backend does not expose. Built-in conversion and fallback
+mappings come from the native engine.
 
 Commands return failure codes to Picocli; only the entry point exits the process, allowing native
 owners to close on both success and failure. `convert` rejects invalid configs as usage errors;
@@ -603,13 +706,33 @@ output files). Office package XML is processed as UTF-8; PDF output is UTF-8.
 The updated Norm/extended Norm/DeTofu paths have been tested on Windows x86_64 only.
 Updated macOS/Linux JNI bridges must be supplied before those platforms can use these new paths.
 
+### Custom DeTofu mappings
+
+The `convert`, `office`, and `pdf` conversion commands accept
+`--detofu-file <file>` together with `--detofu <level>`. The UTF-8 file uses
+three tab-separated columns: source character, fallback character, and extension
+level (`ExtB` through `ExtI`). Blank lines, comments starting with `#`, and
+malformed rows are ignored. The first character in each character column is used.
+Mappings at or above the selected threshold override built-in mappings; later
+rows override earlier rows. Replacement text is not converted recursively.
+PDF extract-only mode ignores DeTofu options.
+
+```text
+openccjni-cli convert -c t2s -i input.txt --detofu all --detofu-file fallback.txt
+openccjni-cli office -c s2t -i input.docx --detofu all --detofu-file fallback.txt
+```
+
+OpenccJava's `dictgen` command is not available in OpenccJNI: the native backend
+exposes conversion dictionaries but does not expose the Java dictionary JSON
+serialization API needed by that command.
+
 ### Plain Text Conversion:
 
 ```
 bin/openccjni-cli convert --help
 Usage: openccjni-cli convert [-EhnpV] -c=<conversion> [--con-enc=<encoding>]
-                             [--detofu=<level>] [-i=<file>]
-                             [--in-enc=<encoding>] [-o=<file>]
+                             [--detofu=<level>] [--detofu-file=<file>]
+                             [-i=<file>] [--in-enc=<encoding>] [-o=<file>]
                              [--out-enc=<encoding>] [-D=<slot:mode:path>[,<slot:
                              mode:path>...]]...
 Convert plain text using OpenccJNI
@@ -631,10 +754,14 @@ Convert plain text using OpenccJNI
                                TWVariantsRev, TWVariantsRevPhrases, HKPhrases,
                                HKPhrasesRev, HKVariants, HKVariantsPhrases,
                                HKVariantsRev, HKVariantsRevPhrases,
-                               JPSCharacters, JPSCharactersRev, JPSPhrases
+                               JPSCharacters, JPSCharactersRev, JPSPhrases,
+                               SealCharacters, SealCharactersRev, SealVariants,
+                               SealVariantsRev
       --detofu=<level>       Apply tofu-safe fallback after conversion: all,
                                ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h,
                                ext-i
+      --detofu-file=<file>   Load UTF-8 DeTofu mappings overriding built-ins
+                               (requires --detofu)
   -E, --norm-compat-extended Normalize extended Unicode compatibility/allograph
                                forms and CJK Compatibility Ideographs before
                                conversion.
@@ -676,44 +803,48 @@ bin/openccjni-cli.bat office -c s2t -i book.docx -o book_converted.docx
 ```
 bin/openccjni-cli office --help
 Usage: openccjni-cli office [-EFhknpV] -c=<conversion> [--detofu=<level>]
-                            [-f=<format>] -i=<file> [-o=<file>] [-D=<slot:mode:
-                            path>[,<slot:mode:path>...]]...
+                            [--detofu-file=<file>] [-f=<format>] -i=<file>
+                            [-o=<file>] [-D=<slot:mode:path>[,<slot:mode:
+                            path>...]]...
 Convert Office documents using OpenccJNI
-  -c, --config=<conversion>
-                           Conversion configuration. Supported: s2t, t2s, s2tw,
-                             tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk, hk2s,
-                             t2tw, t2twp, tw2t, tw2tp, t2hk, t2hkp, hk2t,
-                             hk2tp, t2jp, jp2t, s2seal, t2seal, seal2s, seal2t
+  -c, --config=<conversion>  Conversion configuration. Supported: s2t, t2s,
+                               s2tw, tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk,
+                               hk2s, t2tw, t2twp, tw2t, tw2tp, t2hk, t2hkp,
+                               hk2t, hk2tp, t2jp, jp2t, s2seal, t2seal, seal2s,
+                               seal2t
   -D, --custom-dict=<slot:mode:path>[,<slot:mode:path>...]
-                           Apply custom dictionary file. Format: slot:
-                             append|override:path. Can be repeated or
-                             comma-separated. Supported slots: STCharacters,
-                             STPhrases, STPunctuations, TSCharacters,
-                             TSPhrases, TSPunctuations, TWPhrases,
-                             TWPhrasesRev, TWVariants, TWVariantsPhrases,
-                             TWVariantsRev, TWVariantsRevPhrases, HKPhrases,
-                             HKPhrasesRev, HKVariants, HKVariantsPhrases,
-                             HKVariantsRev, HKVariantsRevPhrases,
-                             JPSCharacters, JPSCharactersRev, JPSPhrases
-      --detofu=<level>     Apply tofu-safe fallback after conversion: all,
-                             ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h,
-                             ext-i
-  -E, --norm-compat-extended
-                           Normalize extended Unicode compatibility/allograph
-                             forms and CJK Compatibility Ideographs before
-                             conversion.
-  -f, --format=<format>    Target Office format (e.g., docx, xlsx, pptx, odt,
-                             epub)
-  -F, --convert-filename   Convert the output filename using the selected
-                             OpenCC configuration.
-  -h, --help               Show this help message and exit.
-  -i, --input=<file>       Input Office file
-  -k, --[no-]keep-font     Preserve font-family info (default: false)
-  -n, --norm-compat        Normalize CJK Compatibility Ideographs before
-                             conversion.
-  -o, --output=<file>      Output Office file
-  -p, --punct              Punctuation conversion (default: false)
-  -V, --version            Print version information and exit.
+                             Apply custom dictionary file. Format: slot:
+                               append|override:path. Can be repeated or
+                               comma-separated. Supported slots: STCharacters,
+                               STPhrases, STPunctuations, TSCharacters,
+                               TSPhrases, TSPunctuations, TWPhrases,
+                               TWPhrasesRev, TWVariants, TWVariantsPhrases,
+                               TWVariantsRev, TWVariantsRevPhrases, HKPhrases,
+                               HKPhrasesRev, HKVariants, HKVariantsPhrases,
+                               HKVariantsRev, HKVariantsRevPhrases,
+                               JPSCharacters, JPSCharactersRev, JPSPhrases,
+                               SealCharacters, SealCharactersRev, SealVariants,
+                               SealVariantsRev
+      --detofu=<level>       Apply tofu-safe fallback after conversion: all,
+                               ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h,
+                               ext-i
+      --detofu-file=<file>   Load UTF-8 DeTofu mappings overriding built-ins
+                               (requires --detofu)
+  -E, --norm-compat-extended Normalize extended Unicode compatibility/allograph
+                               forms and CJK Compatibility Ideographs before
+                               conversion.
+  -f, --format=<format>      Target Office format (e.g., docx, xlsx, pptx, odt,
+                               epub)
+  -F, --convert-filename     Convert the output filename using the selected
+                               OpenCC configuration.
+  -h, --help                 Show this help message and exit.
+  -i, --input=<file>         Input Office file
+  -k, --[no-]keep-font       Preserve font-family info (default: false)
+  -n, --norm-compat          Normalize CJK Compatibility Ideographs before
+                               conversion.
+  -o, --output=<file>        Output Office file
+  -p, --punct                Punctuation conversion (default: false)
+  -V, --version              Print version information and exit.
 ```
 
 #### Optional flags:
@@ -736,44 +867,51 @@ bin/openccjni-cli.bat pdf -c s2t -p -i book.pdf -o book_converted.txt --reflow
 ```
 bin/openccjni-cli pdf --help
 Usage: openccjni-cli pdf [-CeEhHnprV] [-c=<conversion>] [--detofu=<level>]
-                         -i=<file> [-o=<file>] [-D=<slot:mode:path>[,<slot:mode:
-                         path>...]]...
-Extract PDF text, optionally reflow CJK paragraphs, then convert with OpenccJNI
-  -c, --config=<conversion>
-                         Conversion configuration. Supported: s2t, t2s, s2tw,
-                           tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk, hk2s, t2tw,
-                           t2twp, tw2t, tw2tp, t2hk, t2hkp, hk2t, hk2tp, t2jp,
-                           jp2t, s2seal, t2seal, seal2s, seal2t
-  -C, --compact          Compact / tighten paragraph gaps after reflow
-                           (default: false)
+                         [--detofu-file=<file>] -i=<file> [-o=<file>] [-D=<slot:
+                         mode:path>[,<slot:mode:path>...]]...
+Extract PDF text, optionally reflow CJK paragraphs, then convert with
+OpenccJNI
+  -c, --config=<conversion>  Conversion configuration. Supported: s2t, t2s,
+                               s2tw, tw2s, s2twp, tw2sp, s2hkp, hk2sp, s2hk,
+                               hk2s, t2tw, t2twp, tw2t, tw2tp, t2hk, t2hkp,
+                               hk2t, hk2tp, t2jp, jp2t, s2seal, t2seal, seal2s,
+                               seal2t
+  -C, --compact              Compact / tighten paragraph gaps after reflow
+                               (default: false)
   -D, --custom-dict=<slot:mode:path>[,<slot:mode:path>...]
-                         Apply custom dictionary file. Format: slot:
-                           append|override:path. Can be repeated or
-                           comma-separated. Supported slots: STCharacters,
-                           STPhrases, STPunctuations, TSCharacters, TSPhrases,
-                           TSPunctuations, TWPhrases, TWPhrasesRev, TWVariants,
-                           TWVariantsPhrases, TWVariantsRev,
-                           TWVariantsRevPhrases, HKPhrases, HKPhrasesRev,
-                           HKVariants, HKVariantsPhrases, HKVariantsRev,
-                           HKVariantsRevPhrases, JPSCharacters,
-                           JPSCharactersRev, JPSPhrases
-      --detofu=<level>   Apply tofu-safe fallback after conversion: all, ext-b,
-                           ext-c, ext-d, ext-e, ext-f, ext-g, ext-h, ext-i
-  -e, --extract          Extract text from PDF document only (default: false)
-  -E, --norm-compat-extended
-                         Normalize extended Unicode compatibility/allograph
-                           forms and CJK Compatibility Ideographs before
-                           conversion.
-  -h, --help             Show this help message and exit.
-  -H, --header           Insert per-page header markers into extracted text
-  -i, --input=<file>     Input PDF file
-  -n, --norm-compat      Normalize CJK Compatibility Ideographs before
-                           conversion.
-  -o, --output=<file>    Output text file (UTF-8). If omitted,
-                           '<name>_converted.txt' is used next to input.
-  -p, --punct            Enable punctuation conversion (default: false)
-  -r, --reflow           Reflow CJK paragraphs after extraction (default: false)
-  -V, --version          Print version information and exit.
+                             Apply custom dictionary file. Format: slot:
+                               append|override:path. Can be repeated or
+                               comma-separated. Supported slots: STCharacters,
+                               STPhrases, STPunctuations, TSCharacters,
+                               TSPhrases, TSPunctuations, TWPhrases,
+                               TWPhrasesRev, TWVariants, TWVariantsPhrases,
+                               TWVariantsRev, TWVariantsRevPhrases, HKPhrases,
+                               HKPhrasesRev, HKVariants, HKVariantsPhrases,
+                               HKVariantsRev, HKVariantsRevPhrases,
+                               JPSCharacters, JPSCharactersRev, JPSPhrases,
+                               SealCharacters, SealCharactersRev, SealVariants,
+                               SealVariantsRev
+      --detofu=<level>       Apply tofu-safe fallback after conversion: all,
+                               ext-b, ext-c, ext-d, ext-e, ext-f, ext-g, ext-h,
+                               ext-i
+      --detofu-file=<file>   Load UTF-8 DeTofu mappings overriding built-ins
+                               (requires --detofu)
+  -e, --extract              Extract text from PDF document only (default:
+                               false)
+  -E, --norm-compat-extended Normalize extended Unicode compatibility/allograph
+                               forms and CJK Compatibility Ideographs before
+                               conversion.
+  -h, --help                 Show this help message and exit.
+  -H, --header               Insert per-page header markers into extracted text
+  -i, --input=<file>         Input PDF file
+  -n, --norm-compat          Normalize CJK Compatibility Ideographs before
+                               conversion.
+  -o, --output=<file>        Output text file (UTF-8). If omitted,
+                               '<name>_converted.txt' is used next to input.
+  -p, --punct                Enable punctuation conversion (default: false)
+  -r, --reflow               Reflow CJK paragraphs after extraction (default:
+                               false)
+  -V, --version              Print version information and exit.
 ```
 
 ---
@@ -846,23 +984,3 @@ Configured `OpenCC` instances are mutable; confine each instance to one thread o
 
 **Q: Where do I put the native DLL/SO/DYLIB if not embedding?**  
 A: On your system library path (`PATH`, `LD_LIBRARY_PATH`, `DYLD_LIBRARY_PATH`), so `System.loadLibrary` can find it.
-
-### Custom DeTofu mappings
-
-The `convert`, `office`, and `pdf` conversion commands accept
-`--detofu-file <file>` together with `--detofu <level>`. The UTF-8 file uses
-three tab-separated columns: source character, fallback character, and extension
-level (`ExtB` through `ExtI`). Blank lines, comments starting with `#`, and
-malformed rows are ignored. The first character in each character column is used.
-Mappings at or above the selected threshold override built-in mappings; later
-rows override earlier rows. Replacement text is not converted recursively.
-PDF extract-only mode ignores DeTofu options.
-
-```text
-openccjni-cli convert -c t2s -i input.txt --detofu all --detofu-file fallback.txt
-openccjni-cli office -c s2t -i input.docx --detofu all --detofu-file fallback.txt
-```
-
-OpenccJava's `dictgen` command is not available in OpenccJNI: the native backend
-exposes conversion dictionaries but does not expose the Java dictionary JSON
-serialization API needed by that command.

@@ -54,6 +54,31 @@ import java.util.zip.ZipOutputStream;
  *   <li>EPUB: {@code epub}</li>
  * </ul>
  *
+ * <p><b>Selection:</b> DOCX conversion selects {@code word/document.xml}; it does
+ * not convert headers or footers. XLSX selects shared strings and worksheet inline
+ * strings, leaving formulas and numeric cells unchanged. PPTX selects slides,
+ * notes, masters, layouts, comments, and comment authors. OpenDocument selects
+ * {@code content.xml}. EPUB selects HTML/XHTML, OPF, and NCX entries.</p>
+ *
+ * <p><b>Results and ownership:</b> Check {@link Result#success} before using output.
+ * Argument errors, callback exceptions, and archive failures produce failed results.
+ * Callbacks run synchronously and must preserve markup and escaping. An OpenCC
+ * converter supplied by the caller is borrowed and never closed. ZIP validation
+ * checks archive integrity; it does not validate XML or document rendering.
+ * Font preservation protects supported declarations in selected entries, rather
+ * than embedding fonts or preserving every font reference in a package.</p>
+ *
+ * <pre>{@code
+ * try (OpenCC converter = new OpenCC(OpenccConfig.S2T)) {
+ *     OfficeHelper.FileResult result = OfficeHelper.convert(
+ *             new File("input.docx"), new File("output.docx"),
+ *             "docx", converter, false, true);
+ *     if (!result.success) {
+ *         throw new IllegalStateException(result.message);
+ *     }
+ * }
+ * }</pre>
+ *
  * <p>The implementation is compatible with Java 8.</p>
  */
 public class OfficeHelper {

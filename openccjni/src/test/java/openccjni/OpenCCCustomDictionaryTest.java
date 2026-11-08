@@ -95,6 +95,28 @@ class OpenCCCustomDictionaryTest {
         }
     }
 
+    @Test
+    void sealSlotsReachTheirNativeConversionStages() throws Exception {
+        DictSlot[] slots = {DictSlot.SealCharacters, DictSlot.SealCharactersRev,
+                DictSlot.SealVariants, DictSlot.SealVariantsRev};
+        OpenccConfig[] configs = {OpenccConfig.SEAL2T, OpenccConfig.T2SEAL,
+                OpenccConfig.T2SEAL, OpenccConfig.SEAL2T};
+        for (int i = 0; i < slots.length; i++) {
+            for (CustomDictMode mode : CustomDictMode.values()) {
+                String source = "customSource";
+                String target = "customTarget" + i;
+                Path path = dictionary(slots[i].name() + mode.name() + ".txt",
+                        source + "\t" + target + "\n");
+                CustomDictSpec spec = CustomDictSpec.fromFile(slots[i], path, mode);
+                try (OpenCC custom = new OpenCC(configs[i], Collections.singletonList(spec));
+                     OpenCC builtin = new OpenCC(configs[i])) {
+                    assertEquals(target, custom.convert(source), slots[i] + " " + mode);
+                    assertEquals(source, builtin.convert(source));
+                }
+            }
+        }
+    }
+
     private CustomDictSpec customSpec(String name, String contents) throws Exception {
         return CustomDictSpec.fromFile(
                 DictSlot.STPhrases,

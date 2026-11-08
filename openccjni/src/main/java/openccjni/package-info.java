@@ -36,6 +36,13 @@
  * calling thread; retrieve {@link openccjni.OpenCC#getLastError()} immediately
  * after the operation being checked.</p>
  *
+ * <p>Generate the API reference with {@code gradlew :openccjni:javadoc}.
+ * The README contains complete text-pipeline and Office conversion examples,
+ * including ownership, null-input behavior, and CLI-only features.</p>
+ *
+ * @see openccjni.OpenCC
+ * @see openccjni.OfficeHelper
+ * @see openccjni.TextConverter
  * @since 1.0.0
  */
 package openccjni;

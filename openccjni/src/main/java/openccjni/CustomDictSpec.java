@@ -18,6 +18,22 @@ import java.util.Objects;
  * Files themselves are read once per path occurrence when the receiving {@link OpenCC}
  * instance is constructed; later file changes do not affect that converter.</p>
  *
+ * <p>Factories validate the specification structure only; they do not read files
+ * or load native libraries. File existence, UTF-8 decoding, and mapping syntax are
+ * checked when {@code OpenCC} is constructed. Relative paths are resolved from the
+ * process working directory. Select a slot used by the conversion profile; a
+ * mapping in an unrelated slot does not affect that profile.</p>
+ *
+ * <pre>{@code
+ * CustomDictSpec phrases = CustomDictSpec.fromFile(
+ *         DictSlot.STPhrases, java.nio.file.Paths.get("phrases.txt"),
+ *         CustomDictMode.Append);
+ * try (OpenCC converter = new OpenCC(OpenccConfig.S2T,
+ *         java.util.Collections.singletonList(phrases))) {
+ *     String result = converter.convert("输入文本");
+ * }
+ * }</pre>
+ *
  * @see OpenCC#OpenCC(java.util.List)
  * @see OpenCC#OpenCC(OpenccConfig, java.util.List)
  * @since 1.4.0

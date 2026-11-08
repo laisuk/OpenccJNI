@@ -36,6 +36,21 @@ class CliUtilsTest {
     }
 
     @Test
+    void sealSlotsAreAcceptedAndListedForCliCompletion() {
+        for (DictSlot slot : new DictSlot[]{DictSlot.SealCharacters, DictSlot.SealCharactersRev,
+                DictSlot.SealVariants, DictSlot.SealVariantsRev}) {
+            assertEquals(slot, CliUtils.parseDictSlot(slot.name()));
+            assertEquals(slot, CliUtils.parseDictSlot(slot.name().toLowerCase(java.util.Locale.ROOT)));
+            assertTrue(CliUtils.availableDictSlots().contains(slot.name()));
+            boolean found = false;
+            for (String name : new CliUtils.SlotCandidates()) {
+                if (slot.name().equals(name)) found = true;
+            }
+            assertTrue(found, slot.name());
+        }
+    }
+
+    @Test
     void dictionarySlotFilteringDoesNotUseReflectionApis() throws IOException {
         String classFile = classFileContents(CliUtils.class);
 

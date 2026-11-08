@@ -7,6 +7,11 @@ package openccjni;
  * applies mappings for ExtB through ExtI, while {@link #EXT_I}
  * applies ExtI mappings only.</p>
  *
+ * <p>Use with {@link OpenCC#deTofu(String, DeTofuLevel)} after Chinese
+ * conversion. Only built-in mapped characters are replaced. This is a display
+ * fallback policy, not a test of the fonts available on the current system.</p>
+ *
+ * @see OpenCC#deTofu(String, DeTofuLevel)
  * @since 1.4.0
  */
 public enum DeTofuLevel {

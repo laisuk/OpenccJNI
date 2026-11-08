@@ -120,4 +120,24 @@ public enum DictSlot {
      * ({@code JPShinjitaiPhrases.txt}).
      */
     JPSPhrases,
+
+    /** Small Seal Script to regular-script transcriptions ({@code SealCharacters.txt}).
+     * Requires {@code opencc-fmmseg-capi} 0.13.0 or later.
+     */
+    SealCharacters,
+
+    /** Regular-script transcriptions to Small Seal Script ({@code SealCharactersRev.txt}).
+     * Requires {@code opencc-fmmseg-capi} 0.13.0 or later.
+     */
+    SealCharactersRev,
+
+    /** Modern characters to Seal regular-script variants ({@code SealVariants.txt}).
+     * Requires {@code opencc-fmmseg-capi} 0.13.0 or later.
+     */
+    SealVariants,
+
+    /** Seal regular-script variants to modern characters ({@code SealVariantsRev.txt}).
+     * Requires {@code opencc-fmmseg-capi} 0.13.0 or later.
+     */
+    SealVariantsRev,
 }

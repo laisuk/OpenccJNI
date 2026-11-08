@@ -33,6 +33,25 @@ import java.util.concurrent.ConcurrentMap;
  * native wrapper. Confine configured instances to one thread, or synchronize access externally.
  * Do not change configuration or call {@link #close()} while an operation is in progress.
  *
+ * <p><b>Configuration and errors:</b> Configuration names are trimmed and parsed
+ * without regard to case. Constructors and setters select {@link OpenccConfig#S2T}
+ * for invalid configurations; static conversion leaves non-empty input unchanged
+ * instead. Validate external configuration names with {@link OpenccConfig#tryParse(String)}
+ * when fallback is undesirable. {@link #getLastError()} is a static, calling-thread
+ * diagnostic, not an error field owned by this object. Read it immediately after
+ * the operation being checked. Native loading can throw {@link UnsatisfiedLinkError}.</p>
+ *
+ * <p><b>Text processing:</b> {@link #convert(String)} performs Chinese conversion only.
+ * To compose a pipeline, call {@link #normalizeCompatExtended(String)} (or
+ * {@link #normalizeCompat(String)}) first, convert second, and apply
+ * {@link #deTofu(String, DeTofuLevel)} last. Normalization and DeTofu are independent
+ * of the selected conversion profile. Custom DeTofu mapping files are a CLI feature;
+ * this class exposes built-in DeTofu mappings only.</p>
+ *
+ * <p><b>Ownership:</b> Close constructed instances with try-with-resources. Do not
+ * use an instance after closing it; some metadata and null/empty fast paths can
+ * return without touching the native allocation, but do not reopen the instance.</p>
+ *
  * <h2>Examples</h2>
  *
  * <pre>{@code
@@ -348,7 +367,8 @@ public final class OpenCC implements AutoCloseable {
      * Enables or disables parallel conversion mode for the current thread's
      * thread-local native wrapper.
      *
-     * <p>This setting does not affect wrappers owned by other threads.</p>
+     * <p>This setting does not affect wrappers owned by other threads or by
+     * constructed {@code OpenCC} instances.</p>
      *
      * @param isParallel {@code true} to enable parallel conversion for the current thread
      * @since 1.0.2
@@ -381,7 +401,7 @@ public final class OpenCC implements AutoCloseable {
      * @param input input text; may be {@code null} or empty
      * @return converted text; {@code null} if {@code input} is null; {@code ""}
      * if {@code input} is empty
-     * @throws IllegalStateException if this instance has been closed and {@code input} is non-null,
+     * @throws IllegalStateException if this instance has been closed and {@code input} is non-empty,
      *                               or if its native configuration cannot be resolved
      * @throws RuntimeException      if native conversion fails
      * @since 1.0.0
@@ -406,7 +426,7 @@ public final class OpenCC implements AutoCloseable {
      * @param punctuation whether to convert punctuation
      * @return converted text; {@code null} if {@code input} is null; {@code ""}
      * if {@code input} is empty
-     * @throws IllegalStateException if this instance has been closed and {@code input} is non-null,
+     * @throws IllegalStateException if this instance has been closed and {@code input} is non-empty,
      *                               or if its native configuration cannot be resolved
      * @throws RuntimeException      if native conversion fails
      * @since 1.0.0
@@ -473,6 +493,10 @@ public final class OpenCC implements AutoCloseable {
      *
      * <p>This operation uses the native wrapper owned by this {@code OpenCC}
      * instance and is independent of the active conversion configuration.</p>
+     *
+     * <p>Only mapped characters are replaced; unmapped characters remain unchanged.
+     * This operation does not inspect installed fonts and cannot guarantee glyph
+     * availability. Empty input returns an empty string.</p>
      *
      * @param input input text
      * @param level DeTofu fallback threshold
@@ -541,6 +565,9 @@ public final class OpenCC implements AutoCloseable {
      * Updates this instance's configuration using a configuration string.
      *
      * <p>If invalid, defaults to {@code "s2t"} and records an error.</p>
+     *
+     * <p>Custom dictionaries remain attached to this instance; changing the
+     * profile changes which dictionary slots participate in conversion.</p>
      *
      * @param config configuration key; may be null
      * @since 1.0.0
@@ -841,6 +868,14 @@ public final class OpenCC implements AutoCloseable {
                 return 20;
             case TSPunctuations:
                 return 21;
+            case SealCharacters:
+                return 22;
+            case SealCharactersRev:
+                return 23;
+            case SealVariants:
+                return 24;
+            case SealVariantsRev:
+                return 25;
             default:
                 throw new AssertionError("Unhandled custom dictionary slot: " + slot);
         }
