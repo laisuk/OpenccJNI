@@ -38,8 +38,18 @@ class CliCommandTest {
         for (String option : Arrays.asList("--norm-compat", "--norm-compat-extended", "--detofu", "t2hkp", "hk2tp", "STCharacters")) {
             assertTrue(help.out.contains(option), help.out);
         }
-        assertFalse(help.out.contains("--detofu-file"));
+        assertTrue(help.out.contains("--detofu-file"));
         assertFalse(help.out.contains("JPVariants"));
+    }
+
+    @Test
+    void customDeTofuOverridesBuiltinWithoutRecursiveReplacement() throws Exception {
+        Path mappings = tempDir.resolve("detofu.txt");
+        Files.write(mappings, ("# custom\n𬴂\t𱁬\tExtG\n𱁬\t金\tExtI\ninvalid\n").getBytes(StandardCharsets.UTF_8));
+        assertEquals("𱁬金", convert("𬴂𱁬", "--detofu", "all", "--detofu-file", mappings.toString()));
+        assertEquals("𬴂金", convert("𬴂𱁬", "--detofu", "ext-i", "--detofu-file", mappings.toString()));
+        assertNotEquals(0, execute("text", "convert", "-c", "t2s", "--detofu-file", mappings.toString()).code);
+        assertNotEquals(0, execute("text", "convert", "-c", "t2s", "--detofu", "all", "--detofu-file", tempDir.resolve("missing").toString()).code);
     }
 
     @Test
@@ -80,7 +90,7 @@ class CliCommandTest {
             assertEquals(CommandLine.ExitCode.SOFTWARE, execute("", args.toArray(new String[0])).code);
             assertEquals("sentinel", new String(Files.readAllBytes(output), StandardCharsets.UTF_8));
         }
-        assertEquals(2, execute("", "convert", "-c", "t2s", "--detofu-file", "unsupported.txt").code);
+        assertNotEquals(0, execute("", "convert", "-c", "t2s", "--detofu-file", "unsupported.txt").code);
         assertEquals(CommandLine.ExitCode.SOFTWARE, execute("", "convert", "-c", "t2s", "-i", tempDir.resolve("missing.txt").toString()).code);
     }
 

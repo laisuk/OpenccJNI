@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.4.0] - Unreleased
+## \[1.4.0] - Unreleased
 
 ### CLI synchronization with OpenccJava v1.5.0
 
@@ -38,7 +38,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.3.0] - 2026-07-22
+## \[1.3.0] - 2026-07-22
 
 ### Added
 
@@ -62,7 +62,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.2.2] - 2026-04-25
+## \[1.2.2] - 2026-04-25
 
 ### Fixed
 
@@ -86,7 +86,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.2.1] - 2026-03-24
+## \[1.2.1] - 2026-03-24
 
 ### Changed
 
@@ -95,7 +95,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.2.0] - 2026-02-21
+## \[1.2.0] - 2026-02-21
 
 ### Added
 
@@ -112,7 +112,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.0.3] - 2025-10-23
+## \[1.0.3] - 2025-10-23
 
 ### Changed
 
@@ -120,7 +120,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [1.0.2] - 2025-10-04
+## \[1.0.2] - 2025-10-04
 
 ### Added
 
@@ -141,7 +141,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 java --enable-native-access=ALL-UNNAMED -jar openccjava-cli-1.0.3.jar convert -c s2t -p
 ```
 
-## [1.0.0] - 2025-08-31
+## \[1.0.0] - 2025-08-31
 
 ### 📝 Changelog
 

@@ -65,6 +65,10 @@ public class OfficeCommand implements java.util.concurrent.Callable<Integer> {
     )
     private String detofu;
 
+    @Option(names = "--detofu-file", paramLabel = "<file>",
+            description = "Load UTF-8 DeTofu mappings overriding built-ins (requires --detofu)")
+    private File detofuFile;
+
     @Option(
             names = {"-D", "--custom-dict"},
             paramLabel = "<slot:mode:path>",
@@ -108,7 +112,7 @@ public class OfficeCommand implements java.util.concurrent.Callable<Integer> {
                         punct,
                         normCompat,
                         normCompatExtended,
-                        detofu
+                        detofu, detofuFile
                 );
 
                 if (output == null) {

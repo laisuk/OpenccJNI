@@ -846,3 +846,23 @@ Configured `OpenCC` instances are mutable; confine each instance to one thread o
 
 **Q: Where do I put the native DLL/SO/DYLIB if not embedding?**  
 A: On your system library path (`PATH`, `LD_LIBRARY_PATH`, `DYLD_LIBRARY_PATH`), so `System.loadLibrary` can find it.
+
+### Custom DeTofu mappings
+
+The `convert`, `office`, and `pdf` conversion commands accept
+`--detofu-file <file>` together with `--detofu <level>`. The UTF-8 file uses
+three tab-separated columns: source character, fallback character, and extension
+level (`ExtB` through `ExtI`). Blank lines, comments starting with `#`, and
+malformed rows are ignored. The first character in each character column is used.
+Mappings at or above the selected threshold override built-in mappings; later
+rows override earlier rows. Replacement text is not converted recursively.
+PDF extract-only mode ignores DeTofu options.
+
+```text
+openccjni-cli convert -c t2s -i input.txt --detofu all --detofu-file fallback.txt
+openccjni-cli office -c s2t -i input.docx --detofu all --detofu-file fallback.txt
+```
+
+OpenccJava's `dictgen` command is not available in OpenccJNI: the native backend
+exposes conversion dictionaries but does not expose the Java dictionary JSON
+serialization API needed by that command.

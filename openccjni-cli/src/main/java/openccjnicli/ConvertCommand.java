@@ -54,6 +54,10 @@ public class ConvertCommand implements Callable<Integer> {
     )
     private String detofu;
 
+    @Option(names = "--detofu-file", paramLabel = "<file>",
+            description = "Load UTF-8 DeTofu mappings overriding built-ins (requires --detofu)")
+    private File detofuFile;
+
     @Option(
             names = {"-D", "--custom-dict"},
             paramLabel = "<slot:mode:path>",
@@ -95,6 +99,14 @@ public class ConvertCommand implements Callable<Integer> {
 
     private int handleTextConversion() {
         try (OpenCC opencc = CliUtils.createOpenCC(config, customDictSpecs)) {
+            TextConverter textConverter = CliUtils.createTextConverter(
+                    opencc,
+                    punct,
+                    normCompat,
+                    normCompatExtended,
+                    detofu, detofuFile
+            );
+
             String inputText;
 
             if (input != null) {
@@ -114,14 +126,6 @@ public class ConvertCommand implements Callable<Integer> {
                 }
                 inputText = new String(inputStreamReadAllBytes(), inputCharset);
             }
-
-            TextConverter textConverter = CliUtils.createTextConverter(
-                    opencc,
-                    punct,
-                    normCompat,
-                    normCompatExtended,
-                    detofu
-            );
 
             String outputText = textConverter.convert(inputText);
 

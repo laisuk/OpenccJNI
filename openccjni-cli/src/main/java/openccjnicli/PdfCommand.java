@@ -117,6 +117,10 @@ public class PdfCommand implements java.util.concurrent.Callable<Integer> {
     )
     private String detofu;
 
+    @Option(names = "--detofu-file", paramLabel = "<file>",
+            description = "Load UTF-8 DeTofu mappings overriding built-ins (requires --detofu)")
+    private File detofuFile;
+
     @Option(
             names = {"-D", "--custom-dict"},
             paramLabel = "<slot:mode:path>",
@@ -198,7 +202,7 @@ public class PdfCommand implements java.util.concurrent.Callable<Integer> {
                                     punct,
                                     normCompat,
                                     normCompatExtended,
-                                    detofu
+                                    detofu, detofuFile
                             );
 
                     System.err.println("🔁 Converting with OpenccJNI...");
@@ -243,6 +247,9 @@ public class PdfCommand implements java.util.concurrent.Callable<Integer> {
         }
         if (normCompatExtended) {
             ignoredOptions.add("--norm-compat-extended");
+        }
+        if (detofuFile != null) {
+            ignoredOptions.add("--detofu-file");
         }
         if (detofu != null && !detofu.trim().isEmpty()) {
             ignoredOptions.add("--detofu");

@@ -65,10 +65,21 @@ public final class CliUtils {
             OpenCC opencc, boolean punctuation, boolean normCompat,
             boolean normCompatExtended, String detofu
     ) {
+        return createTextConverter(opencc, punctuation, normCompat, normCompatExtended, detofu, null);
+    }
+
+    static TextConverter createTextConverter(
+            OpenCC opencc, boolean punctuation, boolean normCompat,
+            boolean normCompatExtended, String detofu, File detofuFile
+    ) {
         if (opencc == null) {
             throw new IllegalArgumentException("OpenCC converter must not be null");
         }
         final DeTofuLevel level = parseDeTofuLevel(detofu);
+        if (detofuFile != null && level == null) {
+            throw new IllegalArgumentException("--detofu-file requires --detofu");
+        }
+        final Map<Integer, String> custom = loadDeTofuMappings(detofuFile, level);
         return text -> {
             String result = text;
             if (normCompatExtended) {
@@ -78,10 +89,54 @@ public final class CliUtils {
             }
             result = requireResult(opencc.convert(result, punctuation));
             if (level != null) {
-                result = requireResult(opencc.deTofu(result, level));
+                result = applyDeTofu(opencc, result, level, custom);
             }
             return result;
         };
+    }
+
+    // Load once per pipeline; the reference format is source TAB fallback TAB ExtB..ExtI.
+    private static Map<Integer, String> loadDeTofuMappings(File file, DeTofuLevel level) {
+        Map<Integer, String> mappings = new HashMap<>();
+        if (file == null) return mappings;
+        validateInputFile(file);
+        try {
+            for (String line : Files.readAllLines(file.toPath(), java.nio.charset.StandardCharsets.UTF_8)) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                String[] fields = line.split("\t");
+                if (fields.length < 3 || fields[0].trim().isEmpty() || fields[1].trim().isEmpty()) continue;
+                DeTofuLevel entryLevel;
+                try { entryLevel = parseDeTofuLevel(fields[2]); }
+                catch (IllegalArgumentException ignored) { continue; }
+                if (entryLevel != null && entryLevel.ordinal() >= level.ordinal()) {
+                    int fallback = fields[1].trim().codePointAt(0);
+                    mappings.put(fields[0].trim().codePointAt(0), new String(Character.toChars(fallback)));
+                }
+            }
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Failed to load DeTofu custom file: " + file, ex);
+        }
+        return mappings;
+    }
+
+    private static String applyDeTofu(OpenCC opencc, String text, DeTofuLevel level,
+                                      Map<Integer, String> custom) {
+        if (custom.isEmpty()) return requireResult(opencc.deTofu(text, level));
+        StringBuilder result = new StringBuilder(text.length());
+        int segmentStart = 0;
+        for (int i = 0; i < text.length();) {
+            int cp = text.codePointAt(i);
+            String replacement = custom.get(cp);
+            int next = i + Character.charCount(cp);
+            if (replacement != null) {
+                result.append(requireResult(opencc.deTofu(text.substring(segmentStart, i), level)));
+                result.append(replacement);
+                segmentStart = next;
+            }
+            i = next;
+        }
+        return result.append(requireResult(opencc.deTofu(text.substring(segmentStart), level))).toString();
     }
 
     /** Adapts the stable level names to the native inclusive threshold enum. */
