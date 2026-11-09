@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## \[1.4.0] - Unreleased
+## \[1.4.0] - 2026-11-09
 
 ### CLI synchronization with OpenccJava v1.5.0
 
