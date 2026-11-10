@@ -32,6 +32,7 @@ application {
     mainClass.set("openccjnicli.Main")
     applicationDefaultJvmArgs = listOf(
         "-Dfile.encoding=UTF-8",
+        "-Dsun.jnu.encoding=UTF-8", // Java 8: Unicode CLI arguments / file paths
         "-XX:+IgnoreUnrecognizedVMOptions",
         "--enable-native-access=ALL-UNNAMED"
     )
